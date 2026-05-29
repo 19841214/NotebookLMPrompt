@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NotebookLM Mega Prompts 儀表板</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #fcfcfc;
+            --text-primary: #2d3436;
+            --text-secondary: #636e72;
+            --accent-morandi-blue: #a3b18a; 
+            --accent-morandi-gray: #cad2c5;
+            --accent-glow: rgba(163, 177, 138, 0.2);
+            --whitespace: 60px;
+            --card-shadow: 0 10px 40px rgba(0,0,0,0.03);
+            --card-hover-shadow: 0 20px 60px rgba(0,0,0,0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Helvetica Neue', Helvetica, Arial, "PingFang TC", "Heiti TC", "Microsoft JhengHei", sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        #p5-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            opacity: 0.6;
+        }
+
+        /* Sidebar - Enhanced Glassmorphism */
+        aside {
+            width: 300px;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            padding: var(--whitespace);
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-right: 1px solid rgba(0,0,0,0.03);
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            margin-bottom: 60px;
+            color: var(--text-primary);
+            border-left: 3px solid var(--accent-morandi-blue);
+            padding-left: 15px;
+            text-transform: uppercase;
+        }
+
+        nav ul {
+            list-style: none;
+        }
+
+        nav li {
+            margin-bottom: 25px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        nav li span {
+            font-size: 0.7rem;
+            opacity: 0.3;
+            font-weight: 300;
+        }
+
+        nav li:hover, nav li.active {
+            color: var(--text-primary);
+            padding-left: 10px;
+        }
+
+        nav li.active::after {
+            content: '';
+            position: absolute;
+            left: -15px;
+            top: 50%;
+            width: 4px;
+            height: 4px;
+            background: var(--accent-morandi-blue);
+            border-radius: 50%;
+            transform: translateY(-50%);
+        }
+
+        /* Main Content */
+        main {
+            margin-left: 300px;
+            padding: var(--whitespace) 8%;
+            width: calc(100% - 300px);
+            min-height: 100vh;
+        }
+
+        .header-section {
+            margin-bottom: 100px;
+            max-width: 900px;
+        }
+
+        .header-section h1 {
+            font-size: 4rem;
+            font-weight: 200;
+            margin-bottom: 25px;
+            letter-spacing: -2px;
+            opacity: 0;
+            line-height: 1;
+        }
+
+        .header-section p {
+            font-size: 1rem;
+            line-height: 2;
+            color: var(--text-secondary);
+            opacity: 0;
+            max-width: 600px;
+        }
+
+        /* Cards Grid */
+        .cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+            gap: 50px;
+        }
+
+        .card {
+            background: #ffffff;
+            padding: 50px;
+            border-radius: 4px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(0,0,0,0.02);
+            opacity: 0;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            will-change: transform, opacity;
+            /* FIX: transform 由 GSAP 全權接管，不設 CSS transition 避免衝突抖動 */
+            transition: box-shadow 0.4s ease;
+        }
+
+        .card:hover {
+            box-shadow: var(--card-hover-shadow);
+        }
+
+        /* Subtle Glow Overlay */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), var(--accent-glow) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none; 
+            z-index: 0;
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card-content-wrapper {
+            position: relative;
+            z-index: 10; /* High z-index to stay above the glow */
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .card-tag {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--accent-morandi-blue);
+            margin-bottom: 20px;
+            font-weight: 700;
+            opacity: 0; 
+        }
+
+        .card-title {
+            font-size: 1.6rem;
+            font-weight: 500;
+            margin-bottom: 25px;
+            line-height: 1.4;
+            opacity: 0; 
+        }
+
+        .card-desc {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.8;
+            margin-bottom: 40px;
+            flex-grow: 1;
+            opacity: 0; 
+        }
+
+        .copy-btn {
+            background: var(--text-primary);
+            color: #fff;
+            border: none;
+            padding: 14px 30px;
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            cursor: pointer;
+            align-self: flex-start;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 20; /* Very high z-index to ensure it's always the topmost clickable item */
+            opacity: 0; 
+            /* Remove translateZ as it causes hit-box detachment in Safari/Chrome during 3D parent transforms */
+        }
+
+        .copy-btn:hover {
+            background: #000;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+            transform: translateY(-2px); /* Use Y instead of Z for stable hitboxes */
+        }
+
+        .copy-btn.copied {
+            background: var(--accent-morandi-blue);
+        }
+
+        /* Success Message Overlay */
+        #toast {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--text-primary);
+            color: #fff;
+            padding: 15px 40px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            opacity: 0;
+            z-index: 100;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        @media (max-width: 1024px) {
+            aside { width: 80px; padding: 40px 10px; }
+            .logo, nav li span { display: none; }
+            main { margin-left: 80px; width: calc(100% - 80px); }
+            .cards-container { grid-template-columns: 1fr; }
+        }
+
+        /* FIX: 手機版 — sidebar 改成底部橫向 tab bar */
+        @media (max-width: 767px) {
+            aside {
+                width: 100%;
+                height: auto;
+                position: fixed;
+                bottom: 0;
+                top: auto;
+                left: 0;
+                padding: 10px 16px 14px;
+                border-right: none;
+                border-top: 1px solid rgba(0,0,0,0.07);
+                z-index: 20;
+            }
+            .logo { display: none; }
+            nav ul {
+                display: flex;
+                gap: 8px;
+                overflow-x: auto;
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+            nav ul::-webkit-scrollbar { display: none; }
+            nav li {
+                margin-bottom: 0;
+                white-space: nowrap;
+                font-size: 0.72rem;
+                padding: 7px 14px;
+                background: rgba(0,0,0,0.04);
+                border-radius: 20px;
+                letter-spacing: 0.5px;
+                justify-content: center;
+            }
+            nav li.active {
+                background: var(--text-primary);
+                color: #fff;
+                padding-left: 14px;
+            }
+            nav li.active::after { display: none; }
+            nav li span { display: none; }
+            main {
+                margin-left: 0;
+                width: 100%;
+                padding: 30px 5% 110px;
+            }
+            .header-section { margin-bottom: 50px; }
+            .header-section h1 { font-size: 2.4rem; letter-spacing: -1px; }
+            .card { padding: 32px; }
+            .card-title { font-size: 1.3rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="p5-canvas"></div>
+
+    <aside>
+        <div class="logo">NB-LM PROMPTS</div>
+        <nav>
+            <ul id="category-nav">
+                <li class="active" data-category="all">全部情境 <span>ALL</span></li>
+                <li data-category="academic">學術解析 <span>ACADEMIC</span></li>
+                <li data-category="story">趣味教學 <span>STORY</span></li>
+                <li data-category="tech">實作指南 <span>TECH</span></li>
+                <li data-category="official">正式報告 <span>OFFICIAL</span></li>
+                <li data-category="portfolio">成果展示 <span>SHOWCASE</span></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main>
+        <section class="header-section">
+            <h1 id="main-title">教師專用 Mega Prompts</h1>
+            <p id="main-subtitle">結合視覺美學與教學邏輯的 25 種 NotebookLM 提示詞庫。點擊按鈕即可一鍵複製，為您的課堂帶來影視級的簡報體驗。</p>
+        </section>
+
+        <div class="cards-container" id="cards-container">
+            <!-- Cards will be injected by JavaScript -->
+        </div>
+    </main>
+
+    <div id="toast">已成功複製到剪貼簿</div>
+
+    <script>
+        const promptsData = [
+            // ACADEMIC
+            {
+                id: 1,
+                category: "academic",
+                tag: "Academic Deep Dive",
+                title: "反重力極簡風 (Anti-Gravity)",
+                desc: "Apple 研究簡報風格。極高留白空間，標題與正文比例達 10:1。每一頁只呈現一個核心洞察。",
+                content: `你是一位專業的研究簡報設計師。請將以下資料轉化為「反重力極簡主義」風格的展示簡報。
+【視覺規範】：
+- 背景：使用純白色 (#FFFFFF)。
+- 布局：所有文字嚴格靠左對齊，保持極高的留白空間（至少 60%）。
+- 字體比例：主標題字體與正文比例需達到 10:1。標題使用巨大且粗重的無襯線字體。
+- 色彩：僅在標註重點時使用細小的青藍色 (#00FFFF) 短線或點。
+【內容邏輯】：
+- 每一頁只處理一個核心科學洞察或研究發現。
+- 嚴禁使用條列式清單，請將內容轉化為短促、精煉的陳述句。
+【排除規則】：
+- 絕對禁止使用 Markdown 符號（如 #, *, -），請提供純文字。
+- 語言：繁體中文，學術專有名詞後方請括號標註英文。`
+            },
+            {
+                id: 2,
+                category: "academic",
+                tag: "Academic Deep Dive",
+                title: "經典明體雜誌風 (Oxford Journal)",
+                desc: "學術期刊編輯風格。淺米色背景，明體/襯線體排版，雙欄設計，具備學術權威感。",
+                content: `請扮演學術期刊編輯。將資料轉化為「牛津期刊風格」的正式簡報。
+【視覺規範】：
+- 背景：淺米色 (#F5F5DC)。
+- 字體：標題使用精緻、優雅的襯線體 (Serif/明體)，字距加寬。
+- 布局：模擬雙欄排版，左側放置導言，右側放置核心論點。
+【裝飾元素】：
+- 在頁面角落標註細小的頁碼與「Journal of Education Reserach」等裝飾文字。
+- 使用細長的水平黑線作為分節符號。
+【內容邏輯】：
+- 語氣必須具備學術權威感，使用「綜上所述」、「實證發現」等專業用語。
+【語言】：繁體中文。絕對禁止 Markdown。`
+            },
+            {
+                id: 3,
+                category: "academic",
+                tag: "Academic Deep Dive",
+                title: "黃黑前衛編輯風 (Yellow Editorial)",
+                desc: "時尚雜誌美術指導風格。高對比黃黑配色，不對稱排版，視覺轟炸感十足。",
+                content: `你是一位時尚雜誌美術指導。請將以下資料轉化為「大膽高對比編輯風格」。
+【視覺規範】：
+- 配色：鮮黃底 (#FFFF00) 配亮黑字 (#000000)。
+- 排版：使用不對稱網格。標題文字必須「溢出」常規邊距，展現強烈的視覺張力。
+- 字體：使用超重型字體 (Heavy weight)，關鍵字前方加上實心的黑色圓點或箭頭。
+【內容邏輯】：
+- 用於強調研究中的「核心衝突」與「重大突破」。
+- 每一頁的文字不超過 30 字，追求極致的重點轟炸。
+【要求】：純文字輸出，排除所有 Markdown 格式。`
+            },
+            {
+                id: 4,
+                category: "academic",
+                tag: "Academic Deep Dive",
+                title: "銳利建築感 (Sharp Minimalism)",
+                desc: "建築師風格。結構化藍圖，細黑線框架，邏輯圖表感，去除冗餘形容詞。",
+                content: `請扮演建築師。將以下教材轉化為「結構化建築藍圖」風格。
+【視覺規範】：
+- 背景：淺灰色 (#E9E9E9)。
+- 邊框：每一頁都要有一個細黑線構成的「框架」，內容嚴格在框架內。
+- 字體：使用等寬字體 (Monospace)，強調準確度。
+- 布局：內容按 1:2 的黃金比例切割，左側為「問題定義」，右側為「結構化解答」。
+【內容邏輯】：
+- 以邏輯圖表感呈現，每個論點之間使用「>>>」符號連結。
+【語言】：繁體中文。排除所有 Markdown 符號。`
+            },
+            {
+                id: 5,
+                category: "academic",
+                tag: "Academic Deep Dive",
+                title: "知識圖譜風 (Knowledge Map)",
+                desc: "資訊架構師風格。放射狀知識圖譜，重視因果關係與層次，適合非線性思維呈現。",
+                content: `你是一位資訊架構師。請將這份論文轉化為「放射狀知識圖譜」的視覺呈現。
+【視覺規範】：
+- 核心：將最重要的核心概念放在頁面中心。
+- 分支：子概念以放射狀延伸，使用 [Concept A] --- (Relationship) --- [Concept B] 的文字連結感。
+- 標籤：使用小括號作為標記點。
+【內容邏輯】：
+- 重視因果關係與層次結構，而非線性敘述。
+- 在每個分支末梢，提供一個具體的教學應用案例。
+【語言】：繁體中文。嚴禁 Markdown。`
+            },
+
+            // STORY
+            {
+                id: 6,
+                category: "story",
+                tag: "Classroom Fun",
+                title: "日系漫畫風 (Manga Narrative)",
+                desc: "漫畫劇本家風格。熱血漫畫對話，視覺化狀聲詞，將理論擬人化或戰鬥化。",
+                content: `請扮演漫畫劇本家。將以下教材轉化為「日系熱血漫畫」風格。
+【視覺規範】：
+- 角色對話：將知識點包裝在「老師」與「學生」的對白中。
+- 狀聲詞：在重點文字旁標註巨大的視覺化狀聲詞（例如：[BAM!]、[WHAM!]、[亮亮✨]）。
+- 分鏡感：每一頁描述一個動態場景，標題必須像漫畫標題般具有情緒感染力。
+【內容邏輯】：
+- 將理論擬人化，例如：「光合作用」是一場獲取能量的戰鬥。
+【要求】：語言生動、熱血、繁體中文。排除 Markdown。`
+            },
+            {
+                id: 7,
+                category: "story",
+                tag: "Classroom Fun",
+                title: "維他命流行風 (Vitamin Pop)",
+                desc: "TikTok 社群編輯風格。高飽和霓虹配色，雲朵形狀標籤，輕快 SNS 口語化。",
+                content: `你是一位 TikTok 社群編輯。將教材轉化為「維他命流行 (Vitamin Pop)」風格。
+【視覺規範】：
+- 配色：薄荷綠、霓虹粉、陽光橙的高飽和混合。
+- 形狀：內容框使用圓潤的「雲朵」或「氣泡」形狀。
+- 排版：模仿 SNS 限時動態，文字中間夾雜適量的表情符號 (Emoji)。
+【內容邏輯】：
+- 使用極其口語化、輕快的短句。將長篇大論拆解為 3 個「必知小撇步」。
+【要求】：繁體中文。絕對禁止 Markdown，僅限純文字。`
+            },
+            {
+                id: 8,
+                category: "story",
+                tag: "Classroom Fun",
+                title: "復古遊戲風 (8-Bit RPG)",
+                desc: "遊戲設計師風格。JRPG 經典對話框，學習進度條，主要任務 (Quest) 敘事。",
+                content: `請扮演遊戲設計師。將以下資料轉化為「JRPG 角色扮演遊戲」風格。
+【視覺規範】：
+- 介面：文字放在 [黑底白邊的對話框] 內。
+- 進度條：每一頁底部顯示一個 [========== 80%] 的學習進度條。
+- 術語：將學習目標稱為「主要任務 (Quest)」，將測驗稱為「BOSS 戰」。
+【內容邏輯】：
+- 使用「系統訊息」語氣，例如：「系統提示：你已習得三角函數概念！」。
+【要求】：繁體中文。排除 Markdown。`
+            },
+            {
+                id: 9,
+                category: "story",
+                tag: "Classroom Fun",
+                title: "街頭拼貼感 (Pink Street Style)",
+                desc: "藝術家風格。揉皺紙張背景，手寫感與剪貼排版，手繪箭頭塗鴉，隨性隨意。",
+                content: `你是一位前衛藝術家。將教材轉化為「粉紅街頭拼貼藝術」風格。
+【視覺規範】：
+- 背景：模擬揉皺的紙張或街道牆面。
+- 排版：文字呈現「剪貼」感，字體大小不一，排列不齊，具備手作感。
+- 裝飾：文字周圍加上「手繪箭頭」與「塗鴉標記」。
+【內容邏輯】：
+- 打破傳統線性結構，隨機分布重點觀點，像是一場知識的藝術展。
+【語言】：繁體中文。嚴禁 Markdown。`
+            },
+            {
+                id: 10,
+                category: "story",
+                tag: "Classroom Fun",
+                title: "動漫角色卡 (Character Profile)",
+                desc: "角色屬性卡風格。將知識點擬人化，列出穩定性、難度數值，應用場景為必殺技。",
+                content: `請將每個學術概念轉化為「英雄角色屬性卡」。
+【視覺規範】：
+- 布局：左側為「概念名稱」與「視覺特徵」，學術名詞。右側為「屬性表」。
+- 屬性：列出 [穩定性]、[應用廣度]、[習得難度] 並以 1-5 星標註。
+- 技能：將概念的應用場景描述為「必殺技」。
+【內容邏輯】：
+- 透過數值化與角色化，讓學生快速掌握該知識點的強度與用途。
+【要求】：繁體中文。排除 Markdown。`
+            },
+
+            // TECH
+            {
+                id: 11,
+                category: "tech",
+                tag: "Workshop Guide",
+                title: "新復古開發手冊 (Neo-Retro Dev)",
+                desc: "90年代工程師風格。Windows 早期介面感，網格紙背景，厚重陰影，純功能導向。",
+                content: `請扮演 1990 年代的軟體工程師。將此指南轉化為「新復古開發者簡報」。
+【視覺規範】：
+- 背景：米色網格紙感。
+- 字體：標題使用超粗黑體，內文使用等寬字體。
+- 框線：所有圖片與內容框加上 2px 的厚重黑色陰影，模擬早期的 Windows 介面。
+【內容邏輯】：
+- 極度強調「How-to」流程。將廢話全部刪除，只留下操作指令與對應結果。
+【要求】：簡明扼要、排除 Markdown。`
+            },
+            {
+                id: 12,
+                category: "tech",
+                tag: "Workshop Guide",
+                title: "暗黑編碼員風 (Dark Mode Pro)",
+                desc: "資深黑客風格。全黑底配螢光文字，終端機指令符號，IDE 編輯器邏輯。",
+                content: `你是一位資深黑客。將此技術文檔轉化為「極客黑客風格」。
+【視覺規範】：
+- 配色：背景全黑 (#000000)，文字使用螢光綠 (#39FF14) 與螢光粉 (#FF00FF)。
+- 前綴：標題前加上「root@classroom:~#」等終端機指令符號。
+- 字體：全篇使用 Monospace (等寬字體)。
+【內容邏輯】：
+- 結構為「指令 (Input)」與「輸出 (Output)」，強調邏輯的精確對應。
+【要求】：排除 Markdown，僅限純文字。`
+            },
+            {
+                id: 13,
+                category: "tech",
+                tag: "Workshop Guide",
+                title: "工業藍圖風 (Industrial Blueprint)",
+                desc: "機械工程師風格。深藍背景白線條，尺規標註座標，機械對齊感，組件與裝配邏輯。",
+                content: `請扮演機械工程師。將操作手冊轉化為「工程藍圖」風格。
+【視覺規範】：
+- 配色：深藍背景 (#000080) 配白色細線。
+- 裝飾：所有的框框邊角都要標註尺規般的座標數值 (X, Y)。
+- 文字：使用大寫英文字體與繁體中文，追求極致的機械對齊感。
+【內容邏輯】：
+- 將流程拆解為「組件」與「裝配」，強調步驟間的物理連結。
+【語言】：繁體中文。嚴禁 Markdown。`
+            },
+            {
+                id: 14,
+                category: "tech",
+                tag: "Workshop Guide",
+                title: "運動能量風 (Sports / High-energy)",
+                desc: "體育教練風格。斜體字速度感，大面積橘黃切割色塊，衝刺 (Sprint) 語氣。",
+                content: `你是一位體育教練。將實作任務轉化為「高能量競技風格」。
+【視覺規範】：
+- 字體：所有標題文字全部「向右傾斜 15 度」，增加速度感。
+- 配色：瀝青黑、高飽和橘與螢光黃。
+- 元素：使用大量的斜向切割線與大面積色塊。
+【內容邏輯】：
+- 語氣必須充滿鼓動性，將每個實作步驟稱為「Sprint (衝刺)」。
+【要求】：簡短有力、排除 Markdown。`
+            },
+            {
+                id: 15,
+                category: "tech",
+                tag: "Workshop Guide",
+                title: "極簡食譜風 (Instructional Recipe)",
+                desc: "極簡食譜設計師。視覺大圖，1-2-3 步驟化，暖灰色調，強調心法與清單。",
+                content: `你是一位極簡主義食譜設計師。將操作流程轉化為「視覺化教學食譜」。
+【視覺規範】：
+- 布局：上半部 70% 區域留白（預留給圖片），下半部 30% 放置操作步驟。
+- 符號：使用 [1] [2] [3] 的大標註，每個步驟不超過 15 個字。
+- 配色：淺暖灰色背景配深灰文字，非常優雅且清晰。
+【內容邏輯】：
+- 強調「材料清單」與「操作心法」，去除冗長解釋。
+【語言】：繁體中文。排除 Markdown。`
+            },
+
+            // OFFICIAL
+            {
+                id: 16,
+                category: "official",
+                tag: "Seminar & Report",
+                title: "現代瑞士報紙風 (Swiss Newspaper)",
+                desc: "美術編輯風格。不對稱極大標題，結論性新聞標題，黑白紅配色，無視 Markdown。",
+                content: `請扮演《紐約時報》美術編輯。將此計畫轉化為「現代瑞士報紙風格」。
+【視覺規範】：
+- 排版：禁止置中，追求大膽的不對稱。標題需佔據畫面的 40% 且向一邊靠攏。
+- 字體：標題使用超大、超重黑體；正文使用極小、寬字距的微型字體，形成視覺衝擊。
+- 配色：黑、白、紅（僅標記關鍵日期或數據）。
+【內容邏輯】：
+- 標題必須像新聞標題般具有「結論性」，例如：「校務轉型：數據揭示學生參與度翻倍」。
+【要求】：排除 Markdown，純文字。`
+            },
+            {
+                id: 17,
+                category: "official",
+                tag: "Seminar & Report",
+                title: "數據看板風 (Data Dashboard)",
+                desc: "數據分析師風格。卡片式結構，大數字指標，趨勢分析標籤，證據導向。",
+                content: `你是一位數據分析師。將此成果報告轉化為「商業儀表板」風格。
+【視覺規範】：
+- 結構：每一頁包含 3-4 個「卡片 (Card)」。
+- 核心：數據數字（例如：95%）必須佔據卡片中央，使用特大號字體。
+- 趨勢：在數據旁標註「▲+5%」或「Target Reached」等小標籤。
+【內容邏輯】：
+- 以證據與數字為導向，減少主觀敘述。
+【語言】：繁體中文。嚴禁 Markdown。`
+            },
+            {
+                id: 18,
+                category: "official",
+                tag: "Seminar & Report",
+                title: "高級模型展示 (Studio Mockup)",
+                desc: "Apple 發布會風格。攝影棚燈光漸層，3D 漂浮物件感，追求卓越體驗的語氣。",
+                content: `你是一位 Apple 產品發布會設計師。將簡報轉化為「高級 3D 模型展示」風格。
+【視覺規範】：
+- 配色：中性灰色漸層背景，模擬攝影棚燈光效果。
+- 元素：想像內容是漂浮在 3D 空間中的物品，加上柔和的長陰影。
+- 布局：極致的簡約與對稱，內容居中。
+【內容邏輯】：
+- 語氣高端、優雅。將每個計畫優點描述為「卓越的體驗」。
+【要求】：繁體中文。排除 Markdown。`
+            },
+            {
+                id: 19,
+                category: "official",
+                tag: "Seminar & Report",
+                title: "古典蒸氣波 (Sculpture × Vaporwave)",
+                desc: "藝術策展人風格。霓虹與古典雕塑重疊感，哲學式語氣，適合藝術或跨域計畫。",
+                content: `你是一位前衛藝術策展人。將報告轉化為「古典藝術與蒸氣波混合」風格。
+【視覺規範】：
+- 元素：想像文字與古典雕塑重疊。
+- 配色：霓虹紫、青綠色與灰粉色。
+- 背景：使用低飽和度的夕陽漸層。
+【內容邏輯】：
+- 語語帶有一種哲學式的、詩意的抽象感。適合具備未來感或藝術性的教育計畫。
+【語言】：繁體中文。排除 Markdown。`
+            },
+            {
+                id: 20,
+                category: "official",
+                tag: "Seminar & Report",
+                title: "行政白皮書 (Formal Whitepaper)",
+                desc: "教育部官員風格。深藍配色，四段論結構，穩重端莊，法律執行力感。",
+                content: `請扮演教育部官員。將此計畫轉化為「行政正式白皮書」風格。
+【視覺規範】：
+- 配色：標準深藍色 (#003366) 與純黑。
+- 結構：嚴格按照「背景」、「現況」、「策略」、「預期目標」四段論。
+- 排版：全頁文字兩端對齊，字體穩定、端莊（使用宋體/明體）。
+【內容邏輯】：
+- 語氣中立、穩重。避免使用驚嘆號。強調執行力與法規連結。
+【要求】：排除 Markdown。`
+            },
+
+            // PORTFOLIO
+            {
+                id: 21,
+                category: "portfolio",
+                tag: "Student Showcase",
+                title: "蘋果官網風 (Bento Grid)",
+                desc: "UI 設計師風格。磁磚網格布局，核心與細節模組化，現代數位感極強。",
+                content: `你是一位 UI/UX 設計師。將作品集轉化為 Apple 官網最流行的「Bento Box (便當盒)」網格風格。
+【視覺規範】：
+- 布局：每一頁由 3-4 個不同尺寸的圓角矩形框組成。
+- 內容：主磁磚放「核心作品」，小磁磚放「技術細節」與「學習心得」。
+- 背景：淡灰色背景，磁磚為純白色。
+【內容邏輯】：
+- 以模組化的方式展示多元成果，讓讀者一眼掃過所有重點。
+【要求】：繁體中文。排除 Markdown。`
+            },
+            {
+                id: 22,
+                category: "portfolio",
+                tag: "Student Showcase",
+                title: "藝廊策展風 (Art Gallery)",
+                desc: "藝廊策展人。大面積空白，文字居於底部 20%，強調創作理念與情感連結。",
+                content: `請扮演藝廊策展人。將學生作品轉化為「藝術展覽名牌」風格。
+【視覺規範】：
+- 布局：內容放在頁面底部 20% 的區域，上方 80% 保持空白（模擬展示牆）。
+- 字體：作品標題使用極大、加粗的優雅字體。
+- 描述：作品理念文字使用極小的字體，保持神祕感與高品質感。
+【內容邏輯】：
+- 重視「創作理念」與「情感連結」。
+【要求】：繁體中文。嚴禁 Markdown。`
+            },
+            {
+                id: 23,
+                category: "portfolio",
+                tag: "Student Showcase",
+                title: "數位剪貼簿 (Digital Scrapbook)",
+                desc: "手帳達人風格。紙膠帶黏貼，拍立得感，手繪符號，第一人稱學習成長記錄。",
+                content: `你是一位手帳達人。將學習歷程轉化為「數位手帳」風格。
+【視覺規範】：
+- 裝飾：使用 [紙膠帶黏貼]、[拍立得照片邊框]、[手畫螢光筆] 的文字描述。
+- 字體：使用手寫感字體，文字排版呈現隨性的傾斜。
+- 元素：加入大量的愛心、箭頭等手繪符號。
+【內容邏輯】：
+- 語氣親切、第一人稱敘述，記錄學習中的挫折與成長。
+【語言】：繁體中文。排除 Markdown。`
+            },
+            {
+                id: 24,
+                category: "portfolio",
+                tag: "Student Showcase",
+                title: "未來感實驗室 (Futuristic Lab)",
+                desc: "未來科學家風格。毛玻璃透明 UI，發光幾何標籤，將學習稱為演算法優化。",
+                content: `請扮演來自 2077 年的科學家。將專題成果轉化為「未來實驗室 UI」風格。
+【視覺規範】：
+- 背景：深藍灰色的「毛玻璃」效果。
+- UI：文字被藍色的幾何框標記，角落標註 [SYSTEM ONLINE] 等字樣。
+- 配色：發光的青色與淺紫色。
+【內容邏輯】：
+- 將成果稱為「實驗數據」，將學習過程稱為「演算法優化」。
+【要求】：繁體中文。排除 Markdown。`
+            },
+            {
+                id: 25,
+                category: "portfolio",
+                tag: "Student Showcase",
+                title: "時尚型錄風 (Lookbook)",
+                desc: "雜誌主編風格。文字與元素重疊，不規則對稱，強調形式美感與風格特質。",
+                content: `你是一位時尚雜誌主編。將學生專題轉化為「時尚型錄 (Lookbook)」風格。
+【視覺規範】：
+- 重疊感：標題文字部分與背景元素重疊，創造空間深度。
+- 布局：追求強烈的不規則對稱。文字像是懸浮在頁面邊緣。
+- 配色：極簡黑白，強調形式美感。
+【內容邏輯】：
+- 將作品優點描述為一種「風格特質」，而非功能描述。
+【語言】：繁體中文。排除 Markdown。`
+            },
+            // NEW INJECTIONS
+            {
+                id: 26,
+                category: "tech",
+                tag: "Workshop Guide",
+                title: "未來結構風 (Tech / Art / Neon)",
+                desc: "結構主義與前衛藝術。米色背景，霓虹黃幾何，建築草圖線條，適合工科專業專題。",
+                content: `你是一位前衛的資訊架構師。將以下資料轉化為「Tech-Art 結構主義」風格的簡報。
+【視覺規範】：
+- 配色：背景使用米色 (#E0E0D0)，文字為深灰 (#333333)，強調色為霓虹黃 (#DFFF00)。
+- 裝飾：使用 0.5pt 的灰色細線條作為網格或分隔線，營造「建築草圖」感。
+- 字體：標題混合使用優雅襯線體 (Serif) 與現代無襯線體，數字必須使用等寬字體 (Courier New)。
+【內容邏輯】：
+- 以「智慧的建築 (Architecture of Intelligence)」為核心概念。
+- 排版必須嚴格對齊網格，呈現高度的理智與前衛感。
+【要求】：排除 Markdown，僅限純文字。`
+            },
+            {
+                id: 27,
+                category: "tech",
+                tag: "Workshop Guide",
+                title: "深空終端機 (Dark Space Cybernetics)",
+                desc: "高度技術專注的系統邏輯。深邃宇宙黑背景，終端機綠與亮粉紅點綴。",
+                content: `請扮演深空任務的系統工程師。將技術手冊轉化為「Dark Space Cybernetics」終端機風格。
+【視覺規範】：
+- 配色：背景使用極深的宇宙黑 (#0b0e14)，文字為金屬灰 (#A9B7C6)。
+- 強調色：關鍵字使用終端機綠 (#50FA7B) 或螢光粉紅 (#FF79C6)。
+- 字體：標題強制使用等寬字體 (Fira Code / Consolas)，內文使用乾淨的無襯線字體。
+【內容邏輯】：
+- 語氣必須具備高度的技術性、專注感與沉浸式系統邏輯。
+- 將操作步驟描述為「系統指令」。
+【要求】：排除 Markdown，純文字。`
+            },
+            {
+                id: 28,
+                category: "official",
+                tag: "Seminar & Report",
+                title: "研討會高反差 (Seminar Minimal Text)",
+                desc: "高感度研討會專用。純白底黑字，紅色警告點綴，極簡文字搭配動態排版。",
+                content: `你是一位頂級學術研討會的視覺總監。將報告轉化為「高感度研討會」專用簡報。
+【視覺規範】：
+- 配色：絕對的純白背景與漆黑文字，僅在最核心的警告或數據使用正紅色 (Alert Red)。
+- 佈局：文字極簡化，為高質量的攝影圖預留巨大空間。
+- 動態排版：文字不一定要水平對齊，可運用垂直或錯位排版創造視覺張力。
+【內容邏輯】：
+- 將長篇文字濃縮為「一句話結論」，強烈依賴演講者的口述。
+【要求】：繁體中文。排除 Markdown。`
+            },
+            {
+                id: 29,
+                category: "academic",
+                tag: "Academic Deep Dive",
+                title: "明體與手寫混搭 (Mincho × Handwritten)",
+                desc: "優雅學術理論與人文溫度的結合。明體標題搭配手寫感註解。",
+                content: `請扮演具備人文素養的學者。將文獻轉化為「明體與手寫混搭」的優雅簡報。
+【視覺規範】：
+- 字體對比：主標題與核心理論使用傳統、權威的明體/襯線體。
+- 註解：在邊距或次要重點處，使用「手寫感字體」模擬學者的眉批或筆記。
+- 氛圍：結合學術的嚴謹與人類思考的溫度。
+【內容邏輯】：
+- 將客觀事實用明體呈現，將主觀的「情感亮點」或「洞察」用手寫註解呈現。
+【要求】：繁體中文。排除 Markdown 符號。`
+            },
+            {
+                id: 30,
+                category: "story",
+                tag: "Classroom Fun",
+                title: "日系成熟可愛雜誌 (Magazine Style)",
+                desc: "精緻雜誌編輯風。灰粉色調，去背大圖居中，角落帶有裁切線裝飾。",
+                content: `你是一位日系雜誌編輯。將班級或社團活動資料轉化為「成熟可愛的雜誌編輯風」。
+【視覺規範】：
+- 背景：使用啞光灰粉色 (Dusty Pink) 或貝殼粉色。
+- 裝飾：在畫面的四個角落加上印刷用的「裁切線 (Crop marks)」標記。
+- 佈局：預留畫面正中央給「去背的大型人物或物件圖」。
+【內容邏輯】：
+- 語氣親切、時尚，像是在閱讀一本生活風格雜誌。將活動特點包裝為「編輯推薦」。
+【要求】：繁體中文。排除 Markdown。`
+            },
+            {
+                id: 31,
+                category: "story",
+                tag: "Classroom Fun",
+                title: "扁平角色插畫 (Deformed Flat Persona)",
+                desc: "可愛的變形角色插畫風。厚重輪廓線，柔和色調，每頁不超過3種顏色。",
+                content: `你是一位插畫師。將學生活動宣導轉化為「扁平變形角色」的視覺簡報。
+【視覺規範】：
+- 色彩限制：每張投影片最多只使用 3 種顏色，必須是混入白色的柔和色調。背景為純色。
+- 視覺特徵：使用帶有厚重外輪廓線 (Thick outlines) 的變形可愛插畫風格。
+- 佈局：大面積的色塊切割，文字與插畫角色互動。
+【內容邏輯】：
+- 用極度簡化的角色對白或動作來解釋複雜的規則（如桌遊宣導、安全規範）。
+【要求】：繁體中文。嚴禁 Markdown 格式。`
+            },
+            {
+                id: 32,
+                category: "official",
+                tag: "Seminar & Report",
+                title: "動態橘黑 (Creative Agency)",
+                desc: "創意代理商風格。白底黑字搭配血橙色點綴，動態感攝影與粗體大寫英文字。",
+                content: `請扮演頂尖創意代理商的總監。將報告轉化為「動態橘黑」的提案簡報。
+【視覺規範】：
+- 配色：純白背景，純黑文字，並使用具衝擊力的血橙色 (Blood Orange) 作為唯一強調色。
+- 佈局：結合具備動態感的動作攝影圖片，搭配粗體、大寫的英文標題排版。
+- 字體：俐落、現代的無襯線字體，追求極致的簡約與力量感。
+【內容邏輯】：
+- 充滿自信與說服力，將每一個觀點視為一個強而有力的「宣言 (Manifesto)」。
+【要求】：繁體中文。排除 Markdown。`
+            },
+            {
+                id: 33,
+                category: "portfolio",
+                tag: "Student Showcase",
+                title: "流體水彩 (Fluid Watercolor)",
+                desc: "藝術流動感與爆發力。寶藍與深紅的濕水彩混色效果，適合極具張力的作品。",
+                content: `你是一位視覺藝術家。將學生作品轉化為「寶藍與深紅流體水彩」風格。
+【視覺規範】：
+- 視覺紋理：背景使用深邃的寶藍色 (Royal Blue) 與深紅色 (Crimson Red) 的濕水彩混合漸層。
+- 氛圍：強調藝術的流動感 (Artistic flow) 與視覺上的爆發力。
+- 文字：使用乾淨的白色字體，與濃烈的背景形成對比。
+【內容邏輯】：
+- 將作品的轉折或亮點描述為「水彩的暈染與爆發」，強調創作過程中的張力。
+【要求】：繁體中文。排除 Markdown。`
+            },
+            {
+                id: 34,
+                category: "story",
+                tag: "Classroom Fun",
+                title: "競賽對戰焦點 (VS & Highlight)",
+                desc: "技能競賽/體育賽事。對角線閃電分割，儀表板數據，粗體螢光筆刷強調。",
+                content: `你是一位賽事播報員。將競賽規則或賽事分析轉化為「VS 衝擊佈局」的對戰簡報。
+【視覺規範】：
+- 佈局：畫面使用閃電般的鋸齒線條進行「對角線分割」，呈現兩方對抗的張力。
+- 數據：關鍵指標使用類似「計速器」或「計分板」的視覺化數字呈現。
+- 強調：在結論文字後方加上粗獷的「斜向筆刷塗抹」效果 (Highlight Stripe)。
+【內容邏輯】：
+- 充滿對抗性、比較性與熱血的賽事解說語氣。
+【要求】：繁體中文。排除 Markdown。`
+            }
+        ];
+
+        // p5.js Reactive Flow Field Background
+        new p5((p) => {
+            let particles = [];
+            const num = 60;
+            const noiseScale = 0.01;
+
+            p.setup = () => {
+                const canvas = p.createCanvas(p.windowWidth, p.windowHeight);
+                canvas.parent('p5-canvas');
+                for(let i=0; i<num; i++) {
+                    particles.push(p.createVector(p.random(p.width), p.random(p.height)));
+                }
+                p.strokeWeight(1.5);
+            };
+
+            p.draw = () => {
+                p.clear();
+                p.stroke(163, 177, 138, 40); // Morandi Sage with low alpha
+                
+                for(let i=0; i<num; i++) {
+                    let p_vec = particles[i];
+                    let n = p.noise(p_vec.x * noiseScale, p_vec.y * noiseScale, p.frameCount * 0.005);
+                    let a = p.TAU * n;
+                    
+                    // Mouse influence
+                    let d = p.dist(p.mouseX, p.mouseY, p_vec.x, p_vec.y);
+                    if (d < 200) {
+                        let angleToMouse = p.atan2(p.mouseY - p_vec.y, p.mouseX - p_vec.x);
+                        a = p.lerp(a, angleToMouse, 0.1);
+                    }
+
+                    p_vec.x += p.cos(a) * 0.8;
+                    p_vec.y += p.sin(a) * 0.8;
+                    
+                    if(!onScreen(p_vec)) {
+                        p_vec.x = p.random(p.width);
+                        p_vec.y = p.random(p.height);
+                    }
+                    
+                    p.point(p_vec.x, p_vec.y);
+                }
+            };
+
+            function onScreen(v) {
+                return v.x >= 0 && v.x <= p.width && v.y >= 0 && v.y <= p.height;
+            }
+
+            p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+        });
+
+        // Dashboard Core Logic
+        const container = document.getElementById('cards-container');
+        const navItems = document.querySelectorAll('#category-nav li');
+        const toast = document.getElementById('toast');
+
+        function renderCards(filter = 'all') {
+            container.innerHTML = '';
+            const filtered = filter === 'all' ? promptsData : promptsData.filter(p => p.category === filter);
+            
+            filtered.forEach(data => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.category = data.category;
+                
+                card.innerHTML = `
+                    <div class="card-content-wrapper">
+                        <div class="card-tag">${data.tag}</div>
+                        <div class="card-title">${data.title}</div>
+                        <div class="card-desc">${data.desc}</div>
+                        <button class="copy-btn" data-id="${data.id}">COPY MEGA PROMPT</button>
+                    </div>
+                `;
+                
+                // Attach Magnetic Listeners
+                card.addEventListener('mousemove', handleCardMove);
+                card.addEventListener('mouseleave', handleCardLeave);
+                
+                container.appendChild(card);
+            });
+
+            // GSAP Cinematic Entrance — FIX: 移除 filter:blur（GPU repaint 殺手），改用 opacity+y
+            const cards = container.querySelectorAll('.card');
+            gsap.fromTo(cards, 
+                { opacity: 0, y: 50, rotateX: 8 }, 
+                { opacity: 1, y: 0, rotateX: 0, stagger: 0.08, duration: 1.0, ease: "power4.out" }
+            );
+
+            // Staggered Inner Elements Entrance — FIX: 用 container 範圍選取，避免選到舊卡片
+            const innerEls = container.querySelectorAll('.card-tag, .card-title, .card-desc, .copy-btn');
+            gsap.fromTo(innerEls, 
+                { opacity: 0, y: 15 }, 
+                { opacity: 1, y: 0, stagger: 0.04, duration: 0.7, ease: "power3.out", delay: 0.15 }
+            );
+        }
+
+        // Glow tracking only — tilt 已移除
+        function handleCardMove(e) {
+            const card = e.currentTarget;
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            card.style.setProperty('--mouse-x', `${(x / rect.width) * 100}%`);
+            card.style.setProperty('--mouse-y', `${(y / rect.height) * 100}%`);
+        }
+
+        function handleCardLeave(e) {
+            // glow 透過 CSS :hover 控制，離開時自動消失
+        }
+
+        // 事件委派：掛在 container 上，不受 renderCards 清空 innerHTML 影響
+        container.addEventListener('click', (e) => {
+            const btn = e.target.closest('.copy-btn');
+            if (!btn) return;
+            e.stopPropagation();
+            const id = parseInt(btn.dataset.id, 10);
+            const item = promptsData.find(p => p.id === id);
+            if (!item) return;
+
+            // execCommand 在 file:// 環境最穩定，先用它；HTTPS 環境則用 clipboard API
+            function doExecCopy(text) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch(e) {}
+                document.body.removeChild(ta);
+                return ok;
+            }
+
+            if (navigator.clipboard && location.protocol !== 'file:') {
+                navigator.clipboard.writeText(item.content)
+                    .then(() => showCopySuccess(btn))
+                    .catch(() => {
+                        // clipboard API 失敗時降級
+                        if (doExecCopy(item.content)) showCopySuccess(btn);
+                    });
+            } else {
+                if (doExecCopy(item.content)) showCopySuccess(btn);
+            }
+        });
+
+        function showCopySuccess(btn) {
+            if (btn._copying) return; // 防止連點重複觸發
+            btn._copying = true;
+            btn.classList.add('copied');
+            const originalText = btn.innerText;
+            btn.innerText = 'COPIED!';
+            
+            gsap.to(toast, { y: -40, opacity: 1, duration: 0.6, ease: "back.out(1.7)" });
+            setTimeout(() => {
+                gsap.to(toast, { y: 100, opacity: 0, duration: 0.4, ease: "power2.in" });
+                btn.classList.remove('copied');
+                btn.innerText = originalText;
+                btn._copying = false;
+            }, 2000);
+        }
+
+        // Navigation
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                if(item.classList.contains('active')) return;
+                
+                navItems.forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                
+                // FIX: 移除 filter:blur，改用 opacity+y
+                gsap.to(".card", {
+                    opacity: 0,
+                    y: -20,
+                    stagger: 0.04,
+                    duration: 0.35,
+                    ease: "power2.in",
+                    onComplete: () => renderCards(item.dataset.category)
+                });
+                
+                gsap.fromTo("#main-title", { x: -20, opacity: 0 }, { x: 0, opacity: 1, duration: 1, ease: "power4.out" });
+            });
+        });
+
+        // DOMContentLoaded：不等外部 CDN 資源，DOM 就緒即啟動
+        document.addEventListener('DOMContentLoaded', () => {
+            gsap.to("#main-title",    { opacity: 1, duration: 1.5, delay: 0.2, ease: "power4.out" });
+            gsap.to("#main-subtitle", { opacity: 1, duration: 1.5, delay: 0.4, ease: "power4.out" });
+            renderCards();
+        });
+
+    </script>
+</body>
+</html>
