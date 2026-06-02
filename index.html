@@ -1,1078 +1,986 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NotebookLM Mega Prompts 儀表板</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <title>NotebookLM 教育簡報風格研究室</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['Courier New', 'Courier', 'monospace'],
+                    },
+                    colors: {
+                        edu: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            500: '#0d9488', // Teal accent for active
+                            600: '#0f766e',
+                            700: '#115e59',
+                            slate: '#0f172a',
+                            cream: '#fdfbf7', // Cozy warm paper tone
+                        },
+                        neutral: {
+                            850: '#1e293b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        :root {
-            --bg-color: #fcfcfc;
-            --text-primary: #2d3436;
-            --text-secondary: #636e72;
-            --accent-morandi-blue: #a3b18a; 
-            --accent-morandi-gray: #cad2c5;
-            --accent-glow: rgba(163, 177, 138, 0.2);
-            --whitespace: 60px;
-            --card-shadow: 0 10px 40px rgba(0,0,0,0.03);
-            --card-hover-shadow: 0 20px 60px rgba(0,0,0,0.06);
+        /* 輕透優雅滾動條 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Helvetica Neue', Helvetica, Arial, "PingFang TC", "Heiti TC", "Microsoft JhengHei", sans-serif;
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
         }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            overflow-x: hidden;
-            display: flex;
-            min-height: 100vh;
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 99px;
         }
-
-        #p5-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: -1;
-            opacity: 0.6;
+        ::-webkit-scrollbar-thumb:hover {
+            background: #0d9488;
         }
-
-        /* Sidebar - Enhanced Glassmorphism */
-        aside {
-            width: 300px;
-            height: 100vh;
-            position: fixed;
-            left: 0;
-            top: 0;
-            padding: var(--whitespace);
-            background: rgba(255, 255, 255, 0.6);
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
-            border-right: 1px solid rgba(0,0,0,0.03);
-            z-index: 10;
-        }
-
-        .logo {
-            font-size: 1.1rem;
-            font-weight: 700;
-            letter-spacing: 3px;
-            margin-bottom: 60px;
-            color: var(--text-primary);
-            border-left: 3px solid var(--accent-morandi-blue);
-            padding-left: 15px;
-            text-transform: uppercase;
-        }
-
-        nav ul {
-            list-style: none;
-        }
-
-        nav li {
-            margin-bottom: 25px;
-            cursor: pointer;
-            color: var(--text-secondary);
-            font-size: 0.85rem;
-            letter-spacing: 1px;
-            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-            position: relative;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        nav li span {
-            font-size: 0.7rem;
-            opacity: 0.3;
-            font-weight: 300;
-        }
-
-        nav li:hover, nav li.active {
-            color: var(--text-primary);
-            padding-left: 10px;
-        }
-
-        nav li.active::after {
-            content: '';
-            position: absolute;
-            left: -15px;
-            top: 50%;
-            width: 4px;
-            height: 4px;
-            background: var(--accent-morandi-blue);
-            border-radius: 50%;
-            transform: translateY(-50%);
-        }
-
-        /* Main Content */
-        main {
-            margin-left: 300px;
-            padding: var(--whitespace) 8%;
-            width: calc(100% - 300px);
-            min-height: 100vh;
-        }
-
-        .header-section {
-            margin-bottom: 100px;
-            max-width: 900px;
-        }
-
-        .header-section h1 {
-            font-size: 4rem;
-            font-weight: 200;
-            margin-bottom: 25px;
-            letter-spacing: -2px;
-            opacity: 0;
-            line-height: 1;
-        }
-
-        .header-section p {
-            font-size: 1rem;
-            line-height: 2;
-            color: var(--text-secondary);
-            opacity: 0;
-            max-width: 600px;
-        }
-
-        /* Cards Grid */
-        .cards-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-            gap: 50px;
-        }
-
-        .card {
+        
+        .premium-card {
             background: #ffffff;
-            padding: 50px;
-            border-radius: 4px;
-            box-shadow: var(--card-shadow);
-            border: 1px solid rgba(0,0,0,0.02);
-            opacity: 0;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            will-change: transform, opacity;
-            /* FIX: transform 由 GSAP 全權接管，不設 CSS transition 避免衝突抖動 */
-            transition: box-shadow 0.4s ease;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
-        .card:hover {
-            box-shadow: var(--card-hover-shadow);
+        .premium-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.06);
         }
-
-        /* Subtle Glow Overlay */
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), var(--accent-glow) 0%, transparent 60%);
-            opacity: 0;
-            transition: opacity 0.5s ease;
-            pointer-events: none; 
-            z-index: 0;
+        
+        /* 漸進顯示動畫 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-
-        .card:hover::before {
-            opacity: 1;
-        }
-
-        .card-content-wrapper {
-            position: relative;
-            z-index: 10; /* High z-index to stay above the glow */
-            display: flex;
-            flex-direction: column;
-            flex-grow: 1;
-        }
-
-        .card-tag {
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            color: var(--accent-morandi-blue);
-            margin-bottom: 20px;
-            font-weight: 700;
-            opacity: 0; 
-        }
-
-        .card-title {
-            font-size: 1.6rem;
-            font-weight: 500;
-            margin-bottom: 25px;
-            line-height: 1.4;
-            opacity: 0; 
-        }
-
-        .card-desc {
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-            line-height: 1.8;
-            margin-bottom: 40px;
-            flex-grow: 1;
-            opacity: 0; 
-        }
-
-        .copy-btn {
-            background: var(--text-primary);
-            color: #fff;
-            border: none;
-            padding: 14px 30px;
-            font-size: 0.75rem;
-            letter-spacing: 2px;
-            cursor: pointer;
-            align-self: flex-start;
-            transition: all 0.3s ease;
-            position: relative;
-            z-index: 20; /* Very high z-index to ensure it's always the topmost clickable item */
-            opacity: 0; 
-            /* Remove translateZ as it causes hit-box detachment in Safari/Chrome during 3D parent transforms */
-        }
-
-        .copy-btn:hover {
-            background: #000;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
-            transform: translateY(-2px); /* Use Y instead of Z for stable hitboxes */
-        }
-
-        .copy-btn.copied {
-            background: var(--accent-morandi-blue);
-        }
-
-        /* Success Message Overlay */
-        #toast {
-            position: fixed;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: var(--text-primary);
-            color: #fff;
-            padding: 15px 40px;
-            border-radius: 40px;
-            font-size: 0.85rem;
-            letter-spacing: 1px;
-            opacity: 0;
-            z-index: 100;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        }
-
-        @media (max-width: 1024px) {
-            aside { width: 80px; padding: 40px 10px; }
-            .logo, nav li span { display: none; }
-            main { margin-left: 80px; width: calc(100% - 80px); }
-            .cards-container { grid-template-columns: 1fr; }
-        }
-
-        /* FIX: 手機版 — sidebar 改成底部橫向 tab bar */
-        @media (max-width: 767px) {
-            aside {
-                width: 100%;
-                height: auto;
-                position: fixed;
-                bottom: 0;
-                top: auto;
-                left: 0;
-                padding: 10px 16px 14px;
-                border-right: none;
-                border-top: 1px solid rgba(0,0,0,0.07);
-                z-index: 20;
-            }
-            .logo { display: none; }
-            nav ul {
-                display: flex;
-                gap: 8px;
-                overflow-x: auto;
-                scrollbar-width: none;
-                -ms-overflow-style: none;
-            }
-            nav ul::-webkit-scrollbar { display: none; }
-            nav li {
-                margin-bottom: 0;
-                white-space: nowrap;
-                font-size: 0.72rem;
-                padding: 7px 14px;
-                background: rgba(0,0,0,0.04);
-                border-radius: 20px;
-                letter-spacing: 0.5px;
-                justify-content: center;
-            }
-            nav li.active {
-                background: var(--text-primary);
-                color: #fff;
-                padding-left: 14px;
-            }
-            nav li.active::after { display: none; }
-            nav li span { display: none; }
-            main {
-                margin-left: 0;
-                width: 100%;
-                padding: 30px 5% 110px;
-            }
-            .header-section { margin-bottom: 50px; }
-            .header-section h1 { font-size: 2.4rem; letter-spacing: -1px; }
-            .card { padding: 32px; }
-            .card-title { font-size: 1.3rem; }
+        .animate-fade-in {
+            animation: fadeIn 0.35s ease-out forwards;
         }
     </style>
 </head>
-<body>
+<body class="bg-edu-50 text-slate-800 font-sans h-full flex flex-col overflow-hidden">
 
-    <div id="p5-canvas"></div>
+    <!-- 頂部導覽列 (溫和雅致白) -->
+    <header class="border-b border-slate-200 bg-white/95 backdrop-blur-md z-30 px-6 py-3 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-teal-600 to-cyan-500 flex items-center justify-center shadow-md">
+                <i class="fa-solid fa-graduation-cap text-lg text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-slate-800">
+                    NotebookLM Style Lab
+                </h1>
+                <p class="text-[11px] text-slate-500 font-medium">教育簡報風格漸進引導實驗室</p>
+            </div>
+        </div>
+        
+        <!-- 連線狀態與原始資料 -->
+        <div class="flex items-center gap-3">
+            <div id="syncStatus" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                <i class="fa-solid fa-circle-notch fa-spin"></i>
+                <span>讀取雲端課堂...</span>
+            </div>
+            <a href="https://docs.google.com/spreadsheets/d/1XPh7r6g67xepzM_54L38Wn_h-K_vA79Z5PnNxylT-Z1J" target="_blank" class="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                <span>檢視原始試算表</span>
+            </a>
+        </div>
+    </header>
 
-    <aside>
-        <div class="logo">NB-LM PROMPTS</div>
-        <nav>
-            <ul id="category-nav">
-                <li class="active" data-category="all">全部情境 <span>ALL</span></li>
-                <li data-category="academic">學術解析 <span>ACADEMIC</span></li>
-                <li data-category="story">趣味教學 <span>STORY</span></li>
-                <li data-category="tech">實作指南 <span>TECH</span></li>
-                <li data-category="official">正式報告 <span>OFFICIAL</span></li>
-                <li data-category="portfolio">成果展示 <span>SHOWCASE</span></li>
-            </ul>
-        </nav>
-    </aside>
+    <!-- 主體內容 (左側引導選擇，右側大版面模擬預覽) -->
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        
+        <!-- 左側：教師漸進引導選擇區 -->
+        <section class="w-full lg:w-[440px] flex-shrink-0 border-r border-slate-200 bg-white flex flex-col h-full overflow-y-auto">
+            
+            <div class="p-5 space-y-5">
+                
+                <!-- 【第一步：選擇核心大方向】 -->
+                <div class="space-y-2.5">
+                    <div class="flex items-center gap-2">
+                        <span class="flex h-5 w-5 items-center justify-center rounded-full bg-teal-100 text-[11px] font-bold text-teal-700">1</span>
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">大方向領域</h2>
+                    </div>
+                    <p class="text-xs text-slate-500">老師，今天您想設計哪一個領域的學科單元？</p>
+                    
+                    <div class="grid grid-cols-2 gap-2" id="domainContainer">
+                        <button onclick="selectDomain('stem')" id="btn-domain-stem" class="p-3.5 rounded-xl border border-slate-200 text-left hover:border-teal-300 hover:bg-teal-50/20 transition-all duration-200 group active:scale-[0.98]">
+                            <div class="h-7 w-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition">
+                                <i class="fa-solid fa-flask text-xs"></i>
+                            </div>
+                            <h3 class="font-bold text-xs text-slate-800">科學與科技</h3>
+                            <p class="text-[10px] text-slate-400 mt-0.5">理化、程式、生物、STEM</p>
+                        </button>
+                        
+                        <button onclick="selectDomain('humanities')" id="btn-domain-humanities" class="p-3.5 rounded-xl border border-slate-200 text-left hover:border-teal-300 hover:bg-teal-50/20 transition-all duration-200 group active:scale-[0.98]">
+                            <div class="h-7 w-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition">
+                                <i class="fa-solid fa-book-open text-xs"></i>
+                            </div>
+                            <h3 class="font-bold text-xs text-slate-800">人文與語文</h3>
+                            <p class="text-[10px] text-slate-400 mt-0.5">歷史、文學、社會、美學</p>
+                        </button>
 
-    <main>
-        <section class="header-section">
-            <h1 id="main-title">教師專用 Mega Prompts</h1>
-            <p id="main-subtitle">結合視覺美學與教學邏輯的 25 種 NotebookLM 提示詞庫。點擊按鈕即可一鍵複製，為您的課堂帶來影視級的簡報體驗。</p>
+                        <button onclick="selectDomain('interaction')" id="btn-domain-interaction" class="p-3.5 rounded-xl border border-slate-200 text-left hover:border-teal-300 hover:bg-teal-50/20 transition-all duration-200 group active:scale-[0.98]">
+                            <div class="h-7 w-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition">
+                                <i class="fa-solid fa-comments text-xs"></i>
+                            </div>
+                            <h3 class="font-bold text-xs text-slate-800">課堂與素養</h3>
+                            <p class="text-[10px] text-slate-400 mt-0.5">小組討論、開放式思辨</p>
+                        </button>
+
+                        <button onclick="selectDomain('general')" id="btn-domain-general" class="p-3.5 rounded-xl border border-slate-200 text-left hover:border-teal-300 hover:bg-teal-50/20 transition-all duration-200 group active:scale-[0.98]">
+                            <div class="h-7 w-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center mb-1.5 group-hover:scale-110 transition">
+                                <i class="fa-solid fa-layer-group text-xs"></i>
+                            </div>
+                            <h3 class="font-bold text-xs text-slate-800">一般學術</h3>
+                            <p class="text-[10px] text-slate-400 mt-0.5">通識、綜合、專案、報告</p>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 【第二步：選擇表現架構】 (大方向點選後淡入) -->
+                <div id="step2Wrapper" class="space-y-2.5 opacity-40 pointer-events-none transition-all duration-300 border-t border-slate-100 pt-5">
+                    <div class="flex items-center gap-2">
+                        <span class="flex h-5 w-5 items-center justify-center rounded-full bg-teal-100 text-[11px] font-bold text-teal-700">2</span>
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">風格結構</h2>
+                    </div>
+                    <p class="text-xs text-slate-500">本堂課最適合用哪種資訊版面來輔助吸收？</p>
+
+                    <div class="grid grid-cols-3 gap-2" id="formatContainer">
+                        <button onclick="selectFormat('table')" id="btn-format-table" class="p-2.5 rounded-lg border border-slate-200 text-center hover:border-teal-300 transition active:scale-95">
+                            <i class="fa-solid fa-table text-slate-400 block mb-1 text-sm"></i>
+                            <span class="text-[11px] font-bold text-slate-700 block">對照表格</span>
+                        </button>
+                        <button onclick="selectFormat('narrative')" id="btn-format-narrative" class="p-2.5 rounded-lg border border-slate-200 text-center hover:border-teal-300 transition active:scale-95">
+                            <i class="fa-solid fa-timeline text-slate-400 block mb-1 text-sm"></i>
+                            <span class="text-[11px] font-bold text-slate-700 block">敘事脈絡</span>
+                        </button>
+                        <button onclick="selectFormat('logic')" id="btn-format-logic" class="p-2.5 rounded-lg border border-slate-200 text-center hover:border-teal-300 transition active:scale-95">
+                            <i class="fa-solid fa-network-wired text-slate-400 block mb-1 text-sm"></i>
+                            <span class="text-[11px] font-bold text-slate-700 block">概念解構</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 【第三步：細部教案情境挑選】 (前兩步完成後解鎖) -->
+                <div id="step3Wrapper" class="space-y-2.5 opacity-40 pointer-events-none transition-all duration-300 border-t border-slate-100 pt-5">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="flex h-5 w-5 items-center justify-center rounded-full bg-teal-100 text-[11px] font-bold text-teal-700">3</span>
+                            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">具體教案應用</h2>
+                        </div>
+                        <span id="filteredMatchCount" class="text-[10px] font-mono text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full font-bold">0 匹配</span>
+                    </div>
+                    <p class="text-xs text-slate-500">最後，請為您的簡報選定最貼切的學科單元：</p>
+
+                    <div id="scenariosList" class="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
+                        <div class="text-center py-6 text-slate-400 text-xs">
+                            請先在上方完成大方向與風格的選擇。
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 左側欄尾：統計數據 -->
+            <div class="mt-auto p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-[11px] text-slate-500">
+                <span>試算表總資料庫：<strong id="totalDBCount" class="text-slate-700 font-bold">0</strong> 筆風格提示詞</span>
+                <span class="flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> 雲端同步</span>
+            </div>
         </section>
 
-        <div class="cards-container" id="cards-container">
-            <!-- Cards will be injected by JavaScript -->
-        </div>
+        <!-- 右側：全功能大畫幅簡報預覽與提示詞研究室 -->
+        <section class="flex-1 bg-slate-100 p-5 overflow-y-auto flex flex-col justify-between space-y-5">
+            
+            <!-- 大方向大圖預覽標題列 -->
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <span id="activeBadge" class="px-2 py-0.5 bg-teal-600 text-white text-[10px] font-bold rounded tracking-wider">LIVE LAB</span>
+                        <span id="activeScenarioTitle" class="truncate max-w-[280px] md:max-w-md">請在左側選擇以展開簡報</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5" id="activeStyleSub">選取後，此處將自動渲染出最切合的投影片樣版</p>
+                </div>
+                
+                <button onclick="openPresenterMode()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-white text-xs font-bold flex items-center gap-1.5 transition shadow-sm active:scale-95">
+                    <i class="fa-solid fa-expand"></i>
+                    <span>全螢幕放映</span>
+                </button>
+            </div>
+
+            <!-- 高質感 16:9 投影片觀景窗 -->
+            <div class="relative w-full aspect-video rounded-2xl border border-slate-200 overflow-hidden shadow-lg bg-edu-cream" id="slideViewport">
+                <!-- 真正的 16:9 投影片渲染層 (我們在此根據風格給予專屬的 CSS 背景) -->
+                <div id="slideContent" class="w-full h-full p-6 md:p-10 flex flex-col justify-between transition-all duration-300 relative overflow-hidden select-none">
+                    <!-- 預設歡迎畫面 -->
+                    <div class="m-auto text-center space-y-3 max-w-sm">
+                        <div class="h-12 w-12 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm animate-bounce">
+                            <i class="fa-solid fa-circle-arrow-left text-2xl"></i>
+                        </div>
+                        <h3 class="text-sm font-bold text-slate-700">歡迎使用風格實驗室！</h3>
+                        <p class="text-[11px] text-slate-400 leading-relaxed">請老師跟隨左側的引導，由淺入深、逐步點擊，即可在此處即時觀看對應的 NotebookLM 渲染簡報模擬效果。</p>
+                    </div>
+                </div>
+
+                <!-- 簡報播放操控鈕 -->
+                <div class="absolute bottom-3 right-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-md py-1 px-2.5 rounded-full border border-slate-200 z-10 shadow-sm">
+                    <button onclick="prevSlide()" class="h-7 w-7 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-600 hover:text-teal-600 transition">
+                        <i class="fa-solid fa-arrow-left text-xs"></i>
+                    </button>
+                    <span class="text-[10px] text-slate-700 font-mono select-none" id="slidePageIndicator">0 / 0</span>
+                    <button onclick="nextSlide()" class="h-7 w-7 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-600 hover:text-teal-600 transition">
+                        <i class="fa-solid fa-arrow-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 【提示詞工作坊：客製化 Prompt 加上複製】 -->
+            <div class="premium-card rounded-2xl p-5 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles text-teal-600 text-sm"></i>
+                        <h3 class="font-bold text-xs text-slate-800">NotebookLM 最佳實踐提示詞 (可在下方追加課堂自訂要求)</h3>
+                    </div>
+                    <button onclick="copyCurrentPrompt()" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-sm active:scale-95">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>複製提示詞</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <!-- 左側提示詞編輯框 -->
+                    <div class="md:col-span-3 space-y-1.5">
+                        <label class="text-[10px] font-bold text-slate-400 block">合併後的 Prompt (可直接複製)</label>
+                        <textarea id="promptTextarea" class="w-full h-28 bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs font-mono text-slate-600 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 resize-none leading-relaxed" readonly></textarea>
+                    </div>
+
+                    <!-- 右側老師自訂要求 (互動動態整合功能) -->
+                    <div class="md:col-span-2 flex flex-col justify-between space-y-2">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-slate-400 flex justify-between">
+                                <span>增加您的課堂限制 / 要求 (選填)</span>
+                                <span class="text-teal-600">動態拼接</span>
+                            </label>
+                            <input type="text" id="teacherCustomDemand" oninput="updateDynamicPrompt()" placeholder="例：『我要限制 5 張幻燈片，且中英文對照』..." 
+                                class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500">
+                            <p class="text-[10px] text-slate-400 leading-relaxed">這裡輸入的要求，會自動嵌入最終複製的 Prompt 結尾，免除老師手動修改的時間！</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
     </main>
 
-    <div id="toast">已成功複製到剪貼簿</div>
+    <!-- 全螢幕播放模式 (Presenter Mode) -->
+    <div id="presenterMode" class="fixed inset-0 bg-slate-950 z-50 hidden flex-col justify-between p-6 select-none">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <span class="px-2 py-0.5 bg-teal-600 text-white text-[10px] font-bold rounded">SLIDES SHOW</span>
+                <span class="text-xs font-medium text-slate-300" id="presenterScenario">一般學術情境</span>
+            </div>
+            <button onclick="closePresenterMode()" class="h-10 w-10 rounded-full hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- 劇院大銀幕渲染 -->
+        <div class="flex-1 my-4 max-w-4xl w-full mx-auto flex items-center justify-center">
+            <div id="presenterSlideContent" class="w-full aspect-video rounded-2xl bg-edu-cream border border-slate-850 p-10 md:p-14 flex flex-col justify-between transition-all duration-300 relative shadow-2xl">
+                <!-- 動態注入 -->
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center max-w-4xl w-full mx-auto">
+            <div class="text-[10px] text-slate-500">使用鍵盤 ⬅ ➡️ 與 空白鍵 翻頁，按 ESC 鍵可返回</div>
+            <div class="flex items-center gap-3">
+                <button onclick="prevSlidePresenter()" class="h-9 w-9 rounded-lg bg-slate-800 hover:bg-slate-750 flex items-center justify-center text-slate-300 hover:text-teal-400 transition">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <span class="text-xs font-mono text-slate-400" id="presenterPageIndicator">1 / 3</span>
+                <button onclick="nextSlidePresenter()" class="h-9 w-9 rounded-lg bg-slate-800 hover:bg-slate-750 flex items-center justify-center text-slate-300 hover:text-teal-400 transition">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知小框 -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-2xl flex items-center gap-2 transform translate-y-24 opacity-0 transition-all duration-300 z-50">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMessage">複製成功！</span>
+    </div>
 
     <script>
-        const promptsData = [
-            // ACADEMIC
+        // 內置高品質學術提示詞資料庫 (當 CSV 讀取失敗、跨網域延遲時的備用機制)
+        const localBackupDB = [
             {
-                id: 1,
-                category: "academic",
-                tag: "Academic Deep Dive",
-                title: "反重力極簡風 (Anti-Gravity)",
-                desc: "Apple 研究簡報風格。極高留白空間，標題與正文比例達 10:1。每一頁只呈現一個核心洞察。",
-                content: `你是一位專業的研究簡報設計師。請將以下資料轉化為「反重力極簡主義」風格的展示簡報。
-【視覺規範】：
-- 背景：使用純白色 (#FFFFFF)。
-- 布局：所有文字嚴格靠左對齊，保持極高的留白空間（至少 60%）。
-- 字體比例：主標題字體與正文比例需達到 10:1。標題使用巨大且粗重的無襯線字體。
-- 色彩：僅在標註重點時使用細小的青藍色 (#00FFFF) 短線或點。
-【內容邏輯】：
-- 每一頁只處理一個核心科學洞察或研究發現。
-- 嚴禁使用條列式清單，請將內容轉化為短促、精煉的陳述句。
-【排除規則】：
-- 絕對禁止使用 Markdown 符號（如 #, *, -），請提供純文字。
-- 語言：繁體中文，學術專有名詞後方請括號標註英文。`
+                scenario: "國中生物 - 細胞構造比對與探索",
+                style: "系統化互動圖表型 (Interactive Table)",
+                prompt: "請根據上傳的「細胞構造與功能」教材，生成一份適合國中七年級的簡報。要求：\n1. 設計一個植物細胞與動物細胞的主要對照表格（包含細胞壁、葉綠體、液胞、細胞核與細胞膜）。\n2. 以簡單易懂的日常比喻（例如細胞核比喻為大腦/中央控制台）來解釋各構造。\n3. 在最後一張幻燈片提供3個引導式問題以供課堂小組討論。\n風格代碼：[Table-Compare-Structure] 採用高對比藍綠色系，強調排版乾淨度與結構化，資訊密度中高。",
+                tags: "#Table #互動教學 #自然科學"
             },
             {
-                id: 2,
-                category: "academic",
-                tag: "Academic Deep Dive",
-                title: "經典明體雜誌風 (Oxford Journal)",
-                desc: "學術期刊編輯風格。淺米色背景，明體/襯線體排版，雙欄設計，具備學術權威感。",
-                content: `請扮演學術期刊編輯。將資料轉化為「牛津期刊風格」的正式簡報。
-【視覺規範】：
-- 背景：淺米色 (#F5F5DC)。
-- 字體：標題使用精緻、優雅的襯線體 (Serif/明體)，字距加寬。
-- 布局：模擬雙欄排版，左側放置導言，右側放置核心論點。
-【裝飾元素】：
-- 在頁面角落標註細小的頁碼與「Journal of Education Reserach」等裝飾文字。
-- 使用細長的水平黑線作為分節符號。
-【內容邏輯】：
-- 語氣必須具備學術權威感，使用「綜上所述」、「實證發現」等專業用語。
-【語言】：繁體中文。絕對禁止 Markdown。`
+                scenario: "高中物理 - 自由落體實驗數據分析",
+                style: "嚴謹學術實踐型 (Academic Laboratory)",
+                prompt: "請基於本次自由落體物理實驗的CSV數據報告。要求：\n1. 設計一頁以表格呈現不同高度(1m, 2m, 5m)下鋼球落下的時間實測值與理論誤差比對表。\n2. 重點強調「重力加速度預測誤差原因分析」與實驗限制。\n3. 幻燈片採用極簡黑白或深藍配色，強調公式、關鍵常數與誤差方程式。\n風格代碼：[Professional-Grid-Analytical] 重點在學術專業性，嚴禁使用過多裝飾，採用表格與步驟卡片排版。",
+                tags: "#Table #完整風格 #STEM"
             },
             {
-                id: 3,
-                category: "academic",
-                tag: "Academic Deep Dive",
-                title: "黃黑前衛編輯風 (Yellow Editorial)",
-                desc: "時尚雜誌美術指導風格。高對比黃黑配色，不對稱排版，視覺轟炸感十足。",
-                content: `你是一位時尚雜誌美術指導。請將以下資料轉化為「大膽高對比編輯風格」。
-【視覺規範】：
-- 配色：鮮黃底 (#FFFF00) 配亮黑字 (#000000)。
-- 排版：使用不對稱網格。標題文字必須「溢出」常規邊距，展現強烈的視覺張力。
-- 字體：使用超重型字體 (Heavy weight)，關鍵字前方加上實心的黑色圓點或箭頭。
-【內容邏輯】：
-- 用於強調研究中的「核心衝突」與「重大突破」。
-- 每一頁的文字不超過 30 字，追求極致的重點轟炸。
-【要求】：純文字輸出，排除所有 Markdown 格式。`
+                scenario: "大航海時代 - 歷史地圖與因果脈絡",
+                style: "全幅視覺敘事型 (Cinematic Timeline Deck)",
+                prompt: "將大航海時代的背景與影響整理成具備電影敘事感的簡報。要求：\n1. 主題專注於「新舊大陸的哥倫布大交換(Columbian Exchange)」。\n2. 採用大量對比排版，左側列出物質交換清單（如馬、小麥 vs 番茄、玉米），右側做深度歷史脈絡剖析。\n3. 使用典雅、富有冒險精神的古典褐色調作為文字與排版指引。\n風格代碼：[Storytelling-Hero-Image] 重視覺留白、大字標題與歷史事件因果關聯鏈。",
+                tags: "#完整風格 #歷史人文 #敘事排版"
             },
             {
-                id: 4,
-                category: "academic",
-                tag: "Academic Deep Dive",
-                title: "銳利建築感 (Sharp Minimalism)",
-                desc: "建築師風格。結構化藍圖，細黑線框架，邏輯圖表感，去除冗餘形容詞。",
-                content: `請扮演建築師。將以下教材轉化為「結構化建築藍圖」風格。
-【視覺規範】：
-- 背景：淺灰色 (#E9E9E9)。
-- 邊框：每一頁都要有一個細黑線構成的「框架」，內容嚴格在框架內。
-- 字體：使用等寬字體 (Monospace)，強調準確度。
-- 布局：內容按 1:2 的黃金比例切割，左側為「問題定義」，右側為「結構化解答」。
-【內容邏輯】：
-- 以邏輯圖表感呈現，每個論點之間使用「>>>」符號連結。
-【語言】：繁體中文。排除所有 Markdown 符號。`
+                scenario: "古典文學 - 蘇軾宋詞豪放派美學賞析",
+                style: "意境留白古典書卷型 (Classic Calligraphy Deck)",
+                prompt: "將上傳的蘇軾詞作（如《念奴嬌·赤壁懷古》）製作成賞析投影片。要求：\n1. 每頁只聚焦於一到兩句經典詞作，並進行文字畫面的意境解構。\n2. 使用大量的留白版型，模擬中國水墨畫的章法佈局。\n3. 配色指定為宣紙米白底色，搭配煙雨深灰色文字，不使用任何過於現代的亮色系。\n風格代碼：[Minimalist-Oriental-Style] 注重詩意情感，字體大小對比極致化，營造典雅高貴的視覺氣韻。",
+                tags: "#完整風格 #語文教育 #東方美學"
             },
             {
-                id: 5,
-                category: "academic",
-                tag: "Academic Deep Dive",
-                title: "知識圖譜風 (Knowledge Map)",
-                desc: "資訊架構師風格。放射狀知識圖譜，重視因果關係與層次，適合非線性思維呈現。",
-                content: `你是一位資訊架構師。請將這份論文轉化為「放射狀知識圖譜」的視覺呈現。
-【視覺規範】：
-- 核心：將最重要的核心概念放在頁面中心。
-- 分支：子概念以放射狀延伸，使用 [Concept A] --- (Relationship) --- [Concept B] 的文字連結感。
-- 標籤：使用小括號作為標記點。
-【內容邏輯】：
-- 重視因果關係與層次結構，而非線性敘述。
-- 在每個分支末梢，提供一個具體的教學應用案例。
-【語言】：繁體中文。嚴禁 Markdown。`
-            },
-
-            // STORY
-            {
-                id: 6,
-                category: "story",
-                tag: "Classroom Fun",
-                title: "日系漫畫風 (Manga Narrative)",
-                desc: "漫畫劇本家風格。熱血漫畫對話，視覺化狀聲詞，將理論擬人化或戰鬥化。",
-                content: `請扮演漫畫劇本家。將以下教材轉化為「日系熱血漫畫」風格。
-【視覺規範】：
-- 角色對話：將知識點包裝在「老師」與「學生」的對白中。
-- 狀聲詞：在重點文字旁標註巨大的視覺化狀聲詞（例如：[BAM!]、[WHAM!]、[亮亮✨]）。
-- 分鏡感：每一頁描述一個動態場景，標題必須像漫畫標題般具有情緒感染力。
-【內容邏輯】：
-- 將理論擬人化，例如：「光合作用」是一場獲取能量的戰鬥。
-【要求】：語言生動、熱血、繁體中文。排除 Markdown。`
-            },
-            {
-                id: 7,
-                category: "story",
-                tag: "Classroom Fun",
-                title: "維他命流行風 (Vitamin Pop)",
-                desc: "TikTok 社群編輯風格。高飽和霓虹配色，雲朵形狀標籤，輕快 SNS 口語化。",
-                content: `你是一位 TikTok 社群編輯。將教材轉化為「維他命流行 (Vitamin Pop)」風格。
-【視覺規範】：
-- 配色：薄荷綠、霓虹粉、陽光橙的高飽和混合。
-- 形狀：內容框使用圓潤的「雲朵」或「氣泡」形狀。
-- 排版：模仿 SNS 限時動態，文字中間夾雜適量的表情符號 (Emoji)。
-【內容邏輯】：
-- 使用極其口語化、輕快的短句。將長篇大論拆解為 3 個「必知小撇步」。
-【要求】：繁體中文。絕對禁止 Markdown，僅限純文字。`
-            },
-            {
-                id: 8,
-                category: "story",
-                tag: "Classroom Fun",
-                title: "復古遊戲風 (8-Bit RPG)",
-                desc: "遊戲設計師風格。JRPG 經典對話框，學習進度條，主要任務 (Quest) 敘事。",
-                content: `請扮演遊戲設計師。將以下資料轉化為「JRPG 角色扮演遊戲」風格。
-【視覺規範】：
-- 介面：文字放在 [黑底白邊的對話框] 內。
-- 進度條：每一頁底部顯示一個 [========== 80%] 的學習進度條。
-- 術語：將學習目標稱為「主要任務 (Quest)」，將測驗稱為「BOSS 戰」。
-【內容邏輯】：
-- 使用「系統訊息」語氣，例如：「系統提示：你已習得三角函數概念！」。
-【要求】：繁體中文。排除 Markdown。`
-            },
-            {
-                id: 9,
-                category: "story",
-                tag: "Classroom Fun",
-                title: "街頭拼貼感 (Pink Street Style)",
-                desc: "藝術家風格。揉皺紙張背景，手寫感與剪貼排版，手繪箭頭塗鴉，隨性隨意。",
-                content: `你是一位前衛藝術家。將教材轉化為「粉紅街頭拼貼藝術」風格。
-【視覺規範】：
-- 背景：模擬揉皺的紙張或街道牆面。
-- 排版：文字呈現「剪貼」感，字體大小不一，排列不齊，具備手作感。
-- 裝飾：文字周圍加上「手繪箭頭」與「塗鴉標記」。
-【內容邏輯】：
-- 打破傳統線性結構，隨機分布重點觀點，像是一場知識的藝術展。
-【語言】：繁體中文。嚴禁 Markdown。`
-            },
-            {
-                id: 10,
-                category: "story",
-                tag: "Classroom Fun",
-                title: "動漫角色卡 (Character Profile)",
-                desc: "角色屬性卡風格。將知識點擬人化，列出穩定性、難度數值，應用場景為必殺技。",
-                content: `請將每個學術概念轉化為「英雄角色屬性卡」。
-【視覺規範】：
-- 布局：左側為「概念名稱」與「視覺特徵」，學術名詞。右側為「屬性表」。
-- 屬性：列出 [穩定性]、[應用廣度]、[習得難度] 並以 1-5 星標註。
-- 技能：將概念的應用場景描述為「必殺技」。
-【內容邏輯】：
-- 透過數值化與角色化，讓學生快速掌握該知識點的強度與用途。
-【要求】：繁體中文。排除 Markdown。`
-            },
-
-            // TECH
-            {
-                id: 11,
-                category: "tech",
-                tag: "Workshop Guide",
-                title: "新復古開發手冊 (Neo-Retro Dev)",
-                desc: "90年代工程師風格。Windows 早期介面感，網格紙背景，厚重陰影，純功能導向。",
-                content: `請扮演 1990 年代的軟體工程師。將此指南轉化為「新復古開發者簡報」。
-【視覺規範】：
-- 背景：米色網格紙感。
-- 字體：標題使用超粗黑體，內文使用等寬字體。
-- 框線：所有圖片與內容框加上 2px 的厚重黑色陰影，模擬早期的 Windows 介面。
-【內容邏輯】：
-- 極度強調「How-to」流程。將廢話全部刪除，只留下操作指令與對應結果。
-【要求】：簡明扼要、排除 Markdown。`
-            },
-            {
-                id: 12,
-                category: "tech",
-                tag: "Workshop Guide",
-                title: "暗黑編碼員風 (Dark Mode Pro)",
-                desc: "資深黑客風格。全黑底配螢光文字，終端機指令符號，IDE 編輯器邏輯。",
-                content: `你是一位資深黑客。將此技術文檔轉化為「極客黑客風格」。
-【視覺規範】：
-- 配色：背景全黑 (#000000)，文字使用螢光綠 (#39FF14) 與螢光粉 (#FF00FF)。
-- 前綴：標題前加上「root@classroom:~#」等終端機指令符號。
-- 字體：全篇使用 Monospace (等寬字體)。
-【內容邏輯】：
-- 結構為「指令 (Input)」與「輸出 (Output)」，強調邏輯的精確對應。
-【要求】：排除 Markdown，僅限純文字。`
-            },
-            {
-                id: 13,
-                category: "tech",
-                tag: "Workshop Guide",
-                title: "工業藍圖風 (Industrial Blueprint)",
-                desc: "機械工程師風格。深藍背景白線條，尺規標註座標，機械對齊感，組件與裝配邏輯。",
-                content: `請扮演機械工程師。將操作手冊轉化為「工程藍圖」風格。
-【視覺規範】：
-- 配色：深藍背景 (#000080) 配白色細線。
-- 裝飾：所有的框框邊角都要標註尺規般的座標數值 (X, Y)。
-- 文字：使用大寫英文字體與繁體中文，追求極致的機械對齊感。
-【內容邏輯】：
-- 將流程拆解為「組件」與「裝配」，強調步驟間的物理連結。
-【語言】：繁體中文。嚴禁 Markdown。`
-            },
-            {
-                id: 14,
-                category: "tech",
-                tag: "Workshop Guide",
-                title: "運動能量風 (Sports / High-energy)",
-                desc: "體育教練風格。斜體字速度感，大面積橘黃切割色塊，衝刺 (Sprint) 語氣。",
-                content: `你是一位體育教練。將實作任務轉化為「高能量競技風格」。
-【視覺規範】：
-- 字體：所有標題文字全部「向右傾斜 15 度」，增加速度感。
-- 配色：瀝青黑、高飽和橘與螢光黃。
-- 元素：使用大量的斜向切割線與大面積色塊。
-【內容邏輯】：
-- 語氣必須充滿鼓動性，將每個實作步驟稱為「Sprint (衝刺)」。
-【要求】：簡短有力、排除 Markdown。`
-            },
-            {
-                id: 15,
-                category: "tech",
-                tag: "Workshop Guide",
-                title: "極簡食譜風 (Instructional Recipe)",
-                desc: "極簡食譜設計師。視覺大圖，1-2-3 步驟化，暖灰色調，強調心法與清單。",
-                content: `你是一位極簡主義食譜設計師。將操作流程轉化為「視覺化教學食譜」。
-【視覺規範】：
-- 布局：上半部 70% 區域留白（預留給圖片），下半部 30% 放置操作步驟。
-- 符號：使用 [1] [2] [3] 的大標註，每個步驟不超過 15 個字。
-- 配色：淺暖灰色背景配深灰文字，非常優雅且清晰。
-【內容邏輯】：
-- 強調「材料清單」與「操作心法」，去除冗長解釋。
-【語言】：繁體中文。排除 Markdown。`
-            },
-
-            // OFFICIAL
-            {
-                id: 16,
-                category: "official",
-                tag: "Seminar & Report",
-                title: "現代瑞士報紙風 (Swiss Newspaper)",
-                desc: "美術編輯風格。不對稱極大標題，結論性新聞標題，黑白紅配色，無視 Markdown。",
-                content: `請扮演《紐約時報》美術編輯。將此計畫轉化為「現代瑞士報紙風格」。
-【視覺規範】：
-- 排版：禁止置中，追求大膽的不對稱。標題需佔據畫面的 40% 且向一邊靠攏。
-- 字體：標題使用超大、超重黑體；正文使用極小、寬字距的微型字體，形成視覺衝擊。
-- 配色：黑、白、紅（僅標記關鍵日期或數據）。
-【內容邏輯】：
-- 標題必須像新聞標題般具有「結論性」，例如：「校務轉型：數據揭示學生參與度翻倍」。
-【要求】：排除 Markdown，純文字。`
-            },
-            {
-                id: 17,
-                category: "official",
-                tag: "Seminar & Report",
-                title: "數據看板風 (Data Dashboard)",
-                desc: "數據分析師風格。卡片式結構，大數字指標，趨勢分析標籤，證據導向。",
-                content: `你是一位數據分析師。將此成果報告轉化為「商業儀表板」風格。
-【視覺規範】：
-- 結構：每一頁包含 3-4 個「卡片 (Card)」。
-- 核心：數據數字（例如：95%）必須佔據卡片中央，使用特大號字體。
-- 趨勢：在數據旁標註「▲+5%」或「Target Reached」等小標籤。
-【內容邏輯】：
-- 以證據與數字為導向，減少主觀敘述。
-【語言】：繁體中文。嚴禁 Markdown。`
-            },
-            {
-                id: 18,
-                category: "official",
-                tag: "Seminar & Report",
-                title: "高級模型展示 (Studio Mockup)",
-                desc: "Apple 發布會風格。攝影棚燈光漸層，3D 漂浮物件感，追求卓越體驗的語氣。",
-                content: `你是一位 Apple 產品發布會設計師。將簡報轉化為「高級 3D 模型展示」風格。
-【視覺規範】：
-- 配色：中性灰色漸層背景，模擬攝影棚燈光效果。
-- 元素：想像內容是漂浮在 3D 空間中的物品，加上柔和的長陰影。
-- 布局：極致的簡約與對稱，內容居中。
-【內容邏輯】：
-- 語氣高端、優雅。將每個計畫優點描述為「卓越的體驗」。
-【要求】：繁體中文。排除 Markdown。`
-            },
-            {
-                id: 19,
-                category: "official",
-                tag: "Seminar & Report",
-                title: "古典蒸氣波 (Sculpture × Vaporwave)",
-                desc: "藝術策展人風格。霓虹與古典雕塑重疊感，哲學式語氣，適合藝術或跨域計畫。",
-                content: `你是一位前衛藝術策展人。將報告轉化為「古典藝術與蒸氣波混合」風格。
-【視覺規範】：
-- 元素：想像文字與古典雕塑重疊。
-- 配色：霓虹紫、青綠色與灰粉色。
-- 背景：使用低飽和度的夕陽漸層。
-【內容邏輯】：
-- 語語帶有一種哲學式的、詩意的抽象感。適合具備未來感或藝術性的教育計畫。
-【語言】：繁體中文。排除 Markdown。`
-            },
-            {
-                id: 20,
-                category: "official",
-                tag: "Seminar & Report",
-                title: "行政白皮書 (Formal Whitepaper)",
-                desc: "教育部官員風格。深藍配色，四段論結構，穩重端莊，法律執行力感。",
-                content: `請扮演教育部官員。將此計畫轉化為「行政正式白皮書」風格。
-【視覺規範】：
-- 配色：標準深藍色 (#003366) 與純黑。
-- 結構：嚴格按照「背景」、「現況」、「策略」、「預期目標」四段論。
-- 排版：全頁文字兩端對齊，字體穩定、端莊（使用宋體/明體）。
-【內容邏輯】：
-- 語氣中立、穩重。避免使用驚嘆號。強調執行力與法規連結。
-【要求】：排除 Markdown。`
-            },
-
-            // PORTFOLIO
-            {
-                id: 21,
-                category: "portfolio",
-                tag: "Student Showcase",
-                title: "蘋果官網風 (Bento Grid)",
-                desc: "UI 設計師風格。磁磚網格布局，核心與細節模組化，現代數位感極強。",
-                content: `你是一位 UI/UX 設計師。將作品集轉化為 Apple 官網最流行的「Bento Box (便當盒)」網格風格。
-【視覺規範】：
-- 布局：每一頁由 3-4 個不同尺寸的圓角矩形框組成。
-- 內容：主磁磚放「核心作品」，小磁磚放「技術細節」與「學習心得」。
-- 背景：淡灰色背景，磁磚為純白色。
-【內容邏輯】：
-- 以模組化的方式展示多元成果，讓讀者一眼掃過所有重點。
-【要求】：繁體中文。排除 Markdown。`
-            },
-            {
-                id: 22,
-                category: "portfolio",
-                tag: "Student Showcase",
-                title: "藝廊策展風 (Art Gallery)",
-                desc: "藝廊策展人。大面積空白，文字居於底部 20%，強調創作理念與情感連結。",
-                content: `請扮演藝廊策展人。將學生作品轉化為「藝術展覽名牌」風格。
-【視覺規範】：
-- 布局：內容放在頁面底部 20% 的區域，上方 80% 保持空白（模擬展示牆）。
-- 字體：作品標題使用極大、加粗的優雅字體。
-- 描述：作品理念文字使用極小的字體，保持神祕感與高品質感。
-【內容邏輯】：
-- 重視「創作理念」與「情感連結」。
-【要求】：繁體中文。嚴禁 Markdown。`
-            },
-            {
-                id: 23,
-                category: "portfolio",
-                tag: "Student Showcase",
-                title: "數位剪貼簿 (Digital Scrapbook)",
-                desc: "手帳達人風格。紙膠帶黏貼，拍立得感，手繪符號，第一人稱學習成長記錄。",
-                content: `你是一位手帳達人。將學習歷程轉化為「數位手帳」風格。
-【視覺規範】：
-- 裝飾：使用 [紙膠帶黏貼]、[拍立得照片邊框]、[手畫螢光筆] 的文字描述。
-- 字體：使用手寫感字體，文字排版呈現隨性的傾斜。
-- 元素：加入大量的愛心、箭頭等手繪符號。
-【內容邏輯】：
-- 語氣親切、第一人稱敘述，記錄學習中的挫折與成長。
-【語言】：繁體中文。排除 Markdown。`
-            },
-            {
-                id: 24,
-                category: "portfolio",
-                tag: "Student Showcase",
-                title: "未來感實驗室 (Futuristic Lab)",
-                desc: "未來科學家風格。毛玻璃透明 UI，發光幾何標籤，將學習稱為演算法優化。",
-                content: `請扮演來自 2077 年的科學家。將專題成果轉化為「未來實驗室 UI」風格。
-【視覺規範】：
-- 背景：深藍灰色的「毛玻璃」效果。
-- UI：文字被藍色的幾何框標記，角落標註 [SYSTEM ONLINE] 等字樣。
-- 配色：發光的青色與淺紫色。
-【內容邏輯】：
-- 將成果稱為「實驗數據」，將學習過程稱為「演算法優化」。
-【要求】：繁體中文。排除 Markdown。`
-            },
-            {
-                id: 25,
-                category: "portfolio",
-                tag: "Student Showcase",
-                title: "時尚型錄風 (Lookbook)",
-                desc: "雜誌主編風格。文字與元素重疊，不規則對稱，強調形式美感與風格特質。",
-                content: `你是一位時尚雜誌主編。將學生專題轉化為「時尚型錄 (Lookbook)」風格。
-【視覺規範】：
-- 重疊感：標題文字部分與背景元素重疊，創造空間深度。
-- 布局：追求強烈的不規則對稱。文字像是懸浮在頁面邊緣。
-- 配色：極簡黑白，強調形式美感。
-【內容邏輯】：
-- 將作品優點描述為一種「風格特質」，而非功能描述。
-【語言】：繁體中文。排除 Markdown。`
-            },
-            // NEW INJECTIONS
-            {
-                id: 26,
-                category: "tech",
-                tag: "Workshop Guide",
-                title: "未來結構風 (Tech / Art / Neon)",
-                desc: "結構主義與前衛藝術。米色背景，霓虹黃幾何，建築草圖線條，適合工科專業專題。",
-                content: `你是一位前衛的資訊架構師。將以下資料轉化為「Tech-Art 結構主義」風格的簡報。
-【視覺規範】：
-- 配色：背景使用米色 (#E0E0D0)，文字為深灰 (#333333)，強調色為霓虹黃 (#DFFF00)。
-- 裝飾：使用 0.5pt 的灰色細線條作為網格或分隔線，營造「建築草圖」感。
-- 字體：標題混合使用優雅襯線體 (Serif) 與現代無襯線體，數字必須使用等寬字體 (Courier New)。
-【內容邏輯】：
-- 以「智慧的建築 (Architecture of Intelligence)」為核心概念。
-- 排版必須嚴格對齊網格，呈現高度的理智與前衛感。
-【要求】：排除 Markdown，僅限純文字。`
-            },
-            {
-                id: 27,
-                category: "tech",
-                tag: "Workshop Guide",
-                title: "深空終端機 (Dark Space Cybernetics)",
-                desc: "高度技術專注的系統邏輯。深邃宇宙黑背景，終端機綠與亮粉紅點綴。",
-                content: `請扮演深空任務的系統工程師。將技術手冊轉化為「Dark Space Cybernetics」終端機風格。
-【視覺規範】：
-- 配色：背景使用極深的宇宙黑 (#0b0e14)，文字為金屬灰 (#A9B7C6)。
-- 強調色：關鍵字使用終端機綠 (#50FA7B) 或螢光粉紅 (#FF79C6)。
-- 字體：標題強制使用等寬字體 (Fira Code / Consolas)，內文使用乾淨的無襯線字體。
-【內容邏輯】：
-- 語氣必須具備高度的技術性、專注感與沉浸式系統邏輯。
-- 將操作步驟描述為「系統指令」。
-【要求】：排除 Markdown，純文字。`
-            },
-            {
-                id: 28,
-                category: "official",
-                tag: "Seminar & Report",
-                title: "研討會高反差 (Seminar Minimal Text)",
-                desc: "高感度研討會專用。純白底黑字，紅色警告點綴，極簡文字搭配動態排版。",
-                content: `你是一位頂級學術研討會的視覺總監。將報告轉化為「高感度研討會」專用簡報。
-【視覺規範】：
-- 配色：絕對的純白背景與漆黑文字，僅在最核心的警告或數據使用正紅色 (Alert Red)。
-- 佈局：文字極簡化，為高質量的攝影圖預留巨大空間。
-- 動態排版：文字不一定要水平對齊，可運用垂直或錯位排版創造視覺張力。
-【內容邏輯】：
-- 將長篇文字濃縮為「一句話結論」，強烈依賴演講者的口述。
-【要求】：繁體中文。排除 Markdown。`
-            },
-            {
-                id: 29,
-                category: "academic",
-                tag: "Academic Deep Dive",
-                title: "明體與手寫混搭 (Mincho × Handwritten)",
-                desc: "優雅學術理論與人文溫度的結合。明體標題搭配手寫感註解。",
-                content: `請扮演具備人文素養的學者。將文獻轉化為「明體與手寫混搭」的優雅簡報。
-【視覺規範】：
-- 字體對比：主標題與核心理論使用傳統、權威的明體/襯線體。
-- 註解：在邊距或次要重點處，使用「手寫感字體」模擬學者的眉批或筆記。
-- 氛圍：結合學術的嚴謹與人類思考的溫度。
-【內容邏輯】：
-- 將客觀事實用明體呈現，將主觀的「情感亮點」或「洞察」用手寫註解呈現。
-【要求】：繁體中文。排除 Markdown 符號。`
-            },
-            {
-                id: 30,
-                category: "story",
-                tag: "Classroom Fun",
-                title: "日系成熟可愛雜誌 (Magazine Style)",
-                desc: "精緻雜誌編輯風。灰粉色調，去背大圖居中，角落帶有裁切線裝飾。",
-                content: `你是一位日系雜誌編輯。將班級或社團活動資料轉化為「成熟可愛的雜誌編輯風」。
-【視覺規範】：
-- 背景：使用啞光灰粉色 (Dusty Pink) 或貝殼粉色。
-- 裝飾：在畫面的四個角落加上印刷用的「裁切線 (Crop marks)」標記。
-- 佈局：預留畫面正中央給「去背的大型人物或物件圖」。
-【內容邏輯】：
-- 語氣親切、時尚，像是在閱讀一本生活風格雜誌。將活動特點包裝為「編輯推薦」。
-【要求】：繁體中文。排除 Markdown。`
-            },
-            {
-                id: 31,
-                category: "story",
-                tag: "Classroom Fun",
-                title: "扁平角色插畫 (Deformed Flat Persona)",
-                desc: "可愛的變形角色插畫風。厚重輪廓線，柔和色調，每頁不超過3種顏色。",
-                content: `你是一位插畫師。將學生活動宣導轉化為「扁平變形角色」的視覺簡報。
-【視覺規範】：
-- 色彩限制：每張投影片最多只使用 3 種顏色，必須是混入白色的柔和色調。背景為純色。
-- 視覺特徵：使用帶有厚重外輪廓線 (Thick outlines) 的變形可愛插畫風格。
-- 佈局：大面積的色塊切割，文字與插畫角色互動。
-【內容邏輯】：
-- 用極度簡化的角色對白或動作來解釋複雜的規則（如桌遊宣導、安全規範）。
-【要求】：繁體中文。嚴禁 Markdown 格式。`
-            },
-            {
-                id: 32,
-                category: "official",
-                tag: "Seminar & Report",
-                title: "動態橘黑 (Creative Agency)",
-                desc: "創意代理商風格。白底黑字搭配血橙色點綴，動態感攝影與粗體大寫英文字。",
-                content: `請扮演頂尖創意代理商的總監。將報告轉化為「動態橘黑」的提案簡報。
-【視覺規範】：
-- 配色：純白背景，純黑文字，並使用具衝擊力的血橙色 (Blood Orange) 作為唯一強調色。
-- 佈局：結合具備動態感的動作攝影圖片，搭配粗體、大寫的英文標題排版。
-- 字體：俐落、現代的無襯線字體，追求極致的簡約與力量感。
-【內容邏輯】：
-- 充滿自信與說服力，將每一個觀點視為一個強而有力的「宣言 (Manifesto)」。
-【要求】：繁體中文。排除 Markdown。`
-            },
-            {
-                id: 33,
-                category: "portfolio",
-                tag: "Student Showcase",
-                title: "流體水彩 (Fluid Watercolor)",
-                desc: "藝術流動感與爆發力。寶藍與深紅的濕水彩混色效果，適合極具張力的作品。",
-                content: `你是一位視覺藝術家。將學生作品轉化為「寶藍與深紅流體水彩」風格。
-【視覺規範】：
-- 視覺紋理：背景使用深邃的寶藍色 (Royal Blue) 與深紅色 (Crimson Red) 的濕水彩混合漸層。
-- 氛圍：強調藝術的流動感 (Artistic flow) 與視覺上的爆發力。
-- 文字：使用乾淨的白色字體，與濃烈的背景形成對比。
-【內容邏輯】：
-- 將作品的轉折或亮點描述為「水彩的暈染與爆發」，強調創作過程中的張力。
-【要求】：繁體中文。排除 Markdown。`
-            },
-            {
-                id: 34,
-                category: "story",
-                tag: "Classroom Fun",
-                title: "競賽對戰焦點 (VS & Highlight)",
-                desc: "技能競賽/體育賽事。對角線閃電分割，儀表板數據，粗體螢光筆刷強調。",
-                content: `你是一位賽事播報員。將競賽規則或賽事分析轉化為「VS 衝擊佈局」的對戰簡報。
-【視覺規範】：
-- 佈局：畫面使用閃電般的鋸齒線條進行「對角線分割」，呈現兩方對抗的張力。
-- 數據：關鍵指標使用類似「計速器」或「計分板」的視覺化數字呈現。
-- 強調：在結論文字後方加上粗獷的「斜向筆刷塗抹」效果 (Highlight Stripe)。
-【內容邏輯】：
-- 充滿對抗性、比較性與熱血的賽事解說語氣。
-【要求】：繁體中文。排除 Markdown。`
+                scenario: "高一資訊科學 - 演算法樹狀結構",
+                style: "樹狀分支資訊圖表型 (Logic Hierarchy Grid)",
+                prompt: "為高一初學者解釋「二元搜尋樹 (Binary Search Tree)」概念。要求：\n1. 運用 ASCII 或表格網格結構，逐步模擬「搜尋數值 15」的遍歷路徑。\n2. 每一步都要有明確的條件比對（例如：15 > 10，所以往右子樹移動）。\n3. 色調採用駭客風的暗黑色彩與亮綠色路徑點亮效果，提升程式學生的專注度。\n風格代碼：[Developer-Code-Visualization] 強調高度邏輯、步驟方塊化、程式碼區塊的高亮對比。",
+                tags: "#Table #STEM #程式學習"
             }
         ];
 
-        // p5.js Reactive Flow Field Background
-        new p5((p) => {
-            let particles = [];
-            const num = 60;
-            const noiseScale = 0.01;
+        let database = []; // 資料庫資料
+        let selectedDomain = "";  // 階層 1: 領域
+        let selectedFormat = "";  // 階層 2: 結構
+        let selectedScenarioIndex = -1; // 階層 3: 具體教案
 
-            p.setup = () => {
-                const canvas = p.createCanvas(p.windowWidth, p.windowHeight);
-                canvas.parent('p5-canvas');
-                for(let i=0; i<num; i++) {
-                    particles.push(p.createVector(p.random(p.width), p.random(p.height)));
+        let activeSlideIndex = 0; // 當前幻燈片子分頁 (0:封面, 1:內容, 2:討論問題)
+
+        // 頁面加載
+        window.onload = function() {
+            fetchCloudSheetData();
+            
+            // 監聽鍵盤事件用於放映翻頁
+            document.addEventListener('keydown', function(e) {
+                if (document.getElementById('presenterMode').classList.contains('hidden')) return;
+                if (e.key === 'ArrowRight' || e.key === ' ') {
+                    nextSlidePresenter();
+                } else if (e.key === 'ArrowLeft') {
+                    prevSlidePresenter();
+                } else if (e.key === 'Escape') {
+                    closePresenterMode();
                 }
-                p.strokeWeight(1.5);
-            };
+            });
+        };
 
-            p.draw = () => {
-                p.clear();
-                p.stroke(163, 177, 138, 40); // Morandi Sage with low alpha
+        // 抓取並解析試算表
+        function fetchCloudSheetData() {
+            const statusEl = document.getElementById('syncStatus');
+            const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTJyxPVD-7qqLNMf7SCYi9Z5PnNxylT-Z1J5Q68xoVDt0ILFDY0odhlTadm4byb3xNlpOR_VxaFrcUT/pub?gid=1275415734&single=true&output=csv';
+            
+            Papa.parse(csvUrl, {
+                download: true,
+                header: false,
+                complete: function (results) {
+                    const rows = results.data;
+                    if (rows && rows.length > 1) {
+                        try {
+                            const parsed = [];
+                            let startIndex = 0;
+                            // 判斷表頭
+                            if (rows[0][0].includes("情境") || rows[0][0].includes("Scenario") || rows[0][0] === "A") {
+                                startIndex = 1;
+                            }
+                            
+                            for (let i = startIndex; i < rows.length; i++) {
+                                const row = rows[i];
+                                if (row.length >= 3 && row[0] && row[2]) {
+                                    parsed.push({
+                                        scenario: row[0].trim(),
+                                        style: row[1] ? row[1].trim() : "系統化學術風格",
+                                        prompt: row[2].trim(),
+                                        tags: row[3] ? row[3].trim() : "#一般學術"
+                                    });
+                                }
+                            }
+                            
+                            if (parsed.length > 0) {
+                                database = parsed;
+                                normalizeData();
+                                updateStatusIndicator(true, `已連線 ${parsed.length} 個班級模組`);
+                                // 預設載入第一個
+                                autoInitializeSelection();
+                                return;
+                            }
+                        } catch (err) {
+                            console.warn("解析試算表異常，啟用高質感離線庫庫：", err);
+                        }
+                    }
+                    loadLocalFallback();
+                },
+                error: function (err) {
+                    console.warn("雲端載入受阻，啟用離線模組：", err);
+                    loadLocalFallback();
+                }
+            });
+        }
+
+        // 載入本地儲存備用資料
+        function loadLocalFallback() {
+            database = localBackupDB;
+            normalizeData();
+            updateStatusIndicator(false, "已載入本地備用教案");
+            autoInitializeSelection();
+        }
+
+        // 把匯入的資料，自動加上大領域分類標記與架構類型標記
+        function normalizeData() {
+            database.forEach(item => {
+                const tags = item.tags.toLowerCase();
+                const scenario = item.scenario.toLowerCase();
+                const prompt = item.prompt.toLowerCase();
                 
-                for(let i=0; i<num; i++) {
-                    let p_vec = particles[i];
-                    let n = p.noise(p_vec.x * noiseScale, p_vec.y * noiseScale, p.frameCount * 0.005);
-                    let a = p.TAU * n;
-                    
-                    // Mouse influence
-                    let d = p.dist(p.mouseX, p.mouseY, p_vec.x, p_vec.y);
-                    if (d < 200) {
-                        let angleToMouse = p.atan2(p.mouseY - p_vec.y, p.mouseX - p_vec.x);
-                        a = p.lerp(a, angleToMouse, 0.1);
-                    }
-
-                    p_vec.x += p.cos(a) * 0.8;
-                    p_vec.y += p.sin(a) * 0.8;
-                    
-                    if(!onScreen(p_vec)) {
-                        p_vec.x = p.random(p.width);
-                        p_vec.y = p.random(p.height);
-                    }
-                    
-                    p.point(p_vec.x, p_vec.y);
+                // 1. 科學、科技大分類
+                if (tags.includes('自然') || tags.includes('科學') || tags.includes('stem') || tags.includes('物理') || tags.includes('生物') || tags.includes('化學') || tags.includes('程式') || tags.includes('資訊') || scenario.includes('生') || scenario.includes('理') || scenario.includes('化') || scenario.includes('數') || scenario.includes('演算')) {
+                    item.domain = 'stem';
+                } 
+                // 2. 人文歷史大分類
+                else if (tags.includes('歷史') || tags.includes('人文') || tags.includes('語文') || tags.includes('文學') || tags.includes('東方') || scenario.includes('代') || scenario.includes('詞') || scenario.includes('文') || scenario.includes('史') || scenario.includes('書')) {
+                    item.domain = 'humanities';
+                } 
+                // 3. 課堂互動大分類
+                else if (tags.includes('互動') || tags.includes('討論') || tags.includes('素養') || prompt.includes('問題') || prompt.includes('小組') || prompt.includes('討論')) {
+                    item.domain = 'interaction';
+                } 
+                // 4. 一般學術/綜合
+                else {
+                    item.domain = 'general';
                 }
-            };
 
-            function onScreen(v) {
-                return v.x >= 0 && v.x <= p.width && v.y >= 0 && v.y <= p.height;
+                // 版面架構分類
+                if (tags.includes('table') || prompt.includes('表格') || prompt.includes('對照')) {
+                    item.format = 'table';
+                } else if (tags.includes('時間') || tags.includes('敘事') || tags.includes('脈絡') || prompt.includes('時間') || prompt.includes('敘事')) {
+                    item.format = 'narrative';
+                } else {
+                    item.format = 'logic';
+                }
+            });
+
+            document.getElementById('totalDBCount').innerText = database.length;
+        }
+
+        function updateStatusIndicator(isOnline, text) {
+            const statusEl = document.getElementById('syncStatus');
+            if (isOnline) {
+                statusEl.className = "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
+                statusEl.innerHTML = `<i class="fa-solid fa-cloud"></i><span>${text}</span>`;
+            } else {
+                statusEl.className = "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-750 border border-teal-200";
+                statusEl.innerHTML = `<i class="fa-solid fa-microchip"></i><span>${text}</span>`;
+            }
+        }
+
+        // 預設第一次進入自動點選前幾項，避免畫面空白
+        function autoInitializeSelection() {
+            selectDomain('stem');
+            selectFormat('table');
+            const firstFilteredIndex = database.findIndex(item => item.domain === 'stem' && item.format === 'table');
+            if (firstFilteredIndex !== -1) {
+                activateScenario(firstFilteredIndex);
+            } else if (database.length > 0) {
+                activateScenario(0);
+            }
+        }
+
+        // 教師階層式大方向點擊
+        function selectDomain(domain) {
+            selectedDomain = domain;
+            selectedFormat = ""; // 重設下級
+            selectedScenarioIndex = -1;
+
+            // 切換按鈕高亮
+            const domains = ['stem', 'humanities', 'interaction', 'general'];
+            domains.forEach(d => {
+                const btn = document.getElementById(`btn-domain-${d}`);
+                if (d === domain) {
+                    btn.className = "p-3.5 rounded-xl border-2 border-teal-500 bg-teal-50/30 text-left transition-all duration-200 shadow-sm scale-[1.01] relative";
+                } else {
+                    btn.className = "p-3.5 rounded-xl border border-slate-200 text-left hover:border-slate-300 hover:bg-slate-50/50 transition-all duration-200 opacity-60";
+                }
+            });
+
+            // 解鎖第二步
+            const step2 = document.getElementById('step2Wrapper');
+            step2.className = "space-y-2.5 transition-all duration-300 border-t border-slate-100 pt-5 animate-fade-in";
+
+            // 重置第二步與第三步的按鈕與列表
+            const formats = ['table', 'narrative', 'logic'];
+            formats.forEach(f => {
+                document.getElementById(`btn-format-${f}`).className = "p-2.5 rounded-lg border border-slate-200 text-center hover:border-teal-300 transition opacity-80";
+            });
+
+            document.getElementById('step3Wrapper').className = "space-y-2.5 opacity-40 pointer-events-none transition-all duration-300 border-t border-slate-100 pt-5";
+            document.getElementById('scenariosList').innerHTML = `<div class="text-center py-6 text-slate-400 text-xs">請先選擇風格結構。</div>`;
+            document.getElementById('filteredMatchCount').innerText = "0 匹配";
+        }
+
+        // 選擇第二步：風格架構
+        function selectFormat(format) {
+            selectedFormat = format;
+            selectedScenarioIndex = -1;
+
+            const formats = ['table', 'narrative', 'logic'];
+            formats.forEach(f => {
+                const btn = document.getElementById(`btn-format-${f}`);
+                if (f === format) {
+                    btn.className = "p-2.5 rounded-lg border-2 border-teal-500 bg-teal-50/20 text-center transition-all duration-200 scale-102 shadow-sm";
+                } else {
+                    btn.className = "p-2.5 rounded-lg border border-slate-200 text-center hover:border-slate-300 transition opacity-50";
+                }
+            });
+
+            // 解鎖第三步並過濾顯示
+            const step3 = document.getElementById('step3Wrapper');
+            step3.className = "space-y-2.5 transition-all duration-300 border-t border-slate-100 pt-5 animate-fade-in";
+
+            renderScenarioList();
+        }
+
+        // 根據大方向 + 架構過濾出 Google Sheet 相符教案
+        function renderScenarioList() {
+            const container = document.getElementById('scenariosList');
+            
+            const filtered = database.filter(item => {
+                return item.domain === selectedDomain && item.format === selectedFormat;
+            });
+
+            document.getElementById('filteredMatchCount').innerText = `${filtered.length} 個教案`;
+
+            if (filtered.length === 0) {
+                // 如果該特定分類暫無數據，放寬限制，把同領域的其他風格都顯示出來
+                const fallbackFiltered = database.filter(item => item.domain === selectedDomain);
+                if (fallbackFiltered.length > 0) {
+                    renderItems(fallbackFiltered, container, true);
+                } else {
+                    container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs">此領域目前暫無匹配資料。</div>`;
+                }
+            } else {
+                renderItems(filtered, container, false);
+            }
+        }
+
+        function renderItems(list, container, isFallback) {
+            let html = '';
+            if (isFallback) {
+                html += `<p class="text-[9px] text-teal-700 bg-teal-50 p-2 rounded mb-2">💡 試算表中暫無此結構對應，為您推薦同領域教案：</p>`;
             }
 
-            p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
-        });
-
-        // Dashboard Core Logic
-        const container = document.getElementById('cards-container');
-        const navItems = document.querySelectorAll('#category-nav li');
-        const toast = document.getElementById('toast');
-
-        function renderCards(filter = 'all') {
-            container.innerHTML = '';
-            const filtered = filter === 'all' ? promptsData : promptsData.filter(p => p.category === filter);
-            
-            filtered.forEach(data => {
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.dataset.category = data.category;
+            list.forEach((item) => {
+                // 在總庫中找到真實 index
+                const realIndex = database.findIndex(dbItem => dbItem.scenario === item.scenario);
                 
-                card.innerHTML = `
-                    <div class="card-content-wrapper">
-                        <div class="card-tag">${data.tag}</div>
-                        <div class="card-title">${data.title}</div>
-                        <div class="card-desc">${data.desc}</div>
-                        <button class="copy-btn" data-id="${data.id}">COPY MEGA PROMPT</button>
+                html += `
+                    <button onclick="activateScenario(${realIndex})" id="btn-scenario-${realIndex}" 
+                        class="w-full p-2.5 rounded-xl border border-slate-200 text-left hover:border-teal-400 hover:bg-slate-50 transition-all duration-200 block group active:scale-[0.99] animate-fade-in">
+                        <div class="flex justify-between items-start gap-1">
+                            <span class="text-xs font-bold text-slate-700 group-hover:text-teal-600 transition line-clamp-1">${item.scenario}</span>
+                            <span class="text-[9px] font-mono bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded flex-shrink-0">${item.style.split(' ')[0]}</span>
+                        </div>
+                    </button>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // 最終點定某一特定班級教案
+        function activateScenario(index) {
+            selectedScenarioIndex = index;
+            const item = database[index];
+
+            // 高亮選定的教案按鈕
+            const buttons = document.querySelectorAll('[id^="btn-scenario-"]');
+            buttons.forEach(btn => {
+                if (btn.id === `btn-scenario-${index}`) {
+                    btn.className = "w-full p-2.5 rounded-xl border-2 border-teal-500 bg-teal-50/20 text-left transition-all duration-200 block shadow-sm relative";
+                } else {
+                    btn.className = "w-full p-2.5 rounded-xl border border-slate-200 text-left hover:border-slate-300 hover:bg-slate-50 transition-all duration-200 block opacity-60";
+                }
+            });
+
+            // 更新預覽標題、子風格與實驗室 Prompt 內容
+            document.getElementById('activeScenarioTitle').innerText = item.scenario;
+            document.getElementById('activeStyleSub').innerText = `已對齊 NotebookLM 樣版結構：【${item.style}】`;
+            
+            // 重置教師特定要求輸入
+            document.getElementById('teacherCustomDemand').value = "";
+            
+            updateDynamicPrompt();
+
+            // 繪製對應的高質感 16:9 投影片
+            activeSlideIndex = 0;
+            renderSlideContent(item);
+        }
+
+        // 拼接教師個人化要求至 Prompt 內，打造最佳產出效果
+        function updateDynamicPrompt() {
+            if (selectedScenarioIndex === -1) return;
+            const originalItem = database[selectedScenarioIndex];
+            const customInput = document.getElementById('teacherCustomDemand').value.trim();
+
+            let finalPrompt = originalItem.prompt;
+            if (customInput) {
+                finalPrompt += `\n\n【教師特定客製化追加要求】：\n${customInput}`;
+            }
+
+            document.getElementById('promptTextarea').value = finalPrompt;
+        }
+
+        // 16:9 高階投影片動態生成核心 (模擬 Apple & NotebookLM 美學，排版超乾淨、字大、留白優雅)
+        function renderSlideContent(item, targetContainerId = "slideContent") {
+            const container = document.getElementById(targetContainerId);
+            if (!container) return;
+
+            const domain = item.domain;
+            const format = item.format;
+            const scenario = item.scenario;
+            const style = item.style;
+
+            // 定義不同領域的主題配色調
+            let themeClass = "bg-white text-slate-800";
+            let accentText = "text-teal-600";
+            let accentBg = "bg-teal-50";
+            let headerLogo = "🔬";
+
+            if (domain === 'stem') {
+                themeClass = "bg-[#f4fbf7] text-slate-800"; // 柔和薄荷綠
+                accentText = "text-emerald-600";
+                accentBg = "bg-emerald-100";
+                headerLogo = "🧪";
+            } else if (domain === 'humanities') {
+                themeClass = "bg-[#fdfbf7] text-slate-800"; // 古典宣紙米白
+                accentText = "text-amber-700";
+                accentBg = "bg-amber-100";
+                headerLogo = "📜";
+            } else if (domain === 'interaction') {
+                themeClass = "bg-[#f6f5ff] text-indigo-950"; // 雅致薰衣草紫
+                accentText = "text-indigo-600";
+                accentBg = "bg-indigo-100";
+                headerLogo = "💬";
+            }
+
+            let slideHTML = "";
+
+            if (activeSlideIndex === 0) {
+                // 【封面頁 - 優雅大器留白】
+                slideHTML = `
+                    <div class="h-full flex flex-col justify-between">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="h-6 w-6 rounded bg-teal-600 text-white flex items-center justify-center text-xs">${headerLogo}</span>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">${style}</span>
+                            </div>
+                            <span class="text-[9px] font-mono text-slate-400">NOTEBOOKLM LABS</span>
+                        </div>
+                        
+                        <div class="my-auto space-y-3 max-w-2xl">
+                            <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight leading-tight text-slate-800">
+                                ${scenario}
+                            </h1>
+                            <div class="h-0.5 w-12 bg-teal-500 rounded-full"></div>
+                            <p class="text-[11px] text-slate-400 max-w-md leading-relaxed">
+                                本課程簡報依據結構化提示詞渲染生成。旨在提供精準、直觀、低認知負載的知識理解路徑。
+                            </p>
+                        </div>
+
+                        <div class="flex justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-3">
+                            <span>隨堂授課教師精選風格</span>
+                            <span class="font-mono">Slide 1 / 3</span>
+                        </div>
                     </div>
                 `;
-                
-                // Attach Magnetic Listeners
-                card.addEventListener('mousemove', handleCardMove);
-                card.addEventListener('mouseleave', handleCardLeave);
-                
-                container.appendChild(card);
-            });
+            } else if (activeSlideIndex === 1) {
+                // 【內容頁 - 結構化排版】
+                if (format === 'table') {
+                    // 表格型投影片
+                    slideHTML = `
+                        <div class="h-full flex flex-col justify-between">
+                            <div>
+                                <span class="text-[9px] font-bold ${accentText} tracking-wider">STRUCTURED COMPARISON // 比對表格</span>
+                                <h2 class="text-lg md:text-xl font-bold text-slate-800 mt-0.5">關鍵維度對照與解析</h2>
+                            </div>
 
-            // GSAP Cinematic Entrance — FIX: 移除 filter:blur（GPU repaint 殺手），改用 opacity+y
-            const cards = container.querySelectorAll('.card');
-            gsap.fromTo(cards, 
-                { opacity: 0, y: 50, rotateX: 8 }, 
-                { opacity: 1, y: 0, rotateX: 0, stagger: 0.08, duration: 1.0, ease: "power4.out" }
-            );
+                            <div class="my-auto overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                                <table class="w-full text-left text-[11px] border-collapse">
+                                    <thead>
+                                        <tr class="bg-slate-50 border-b border-slate-200">
+                                            <th class="p-2 font-bold text-slate-700">分類構造</th>
+                                            <th class="p-2 font-bold text-slate-700">要素 / 原理 A</th>
+                                            <th class="p-2 font-bold text-slate-700">要素 / 原理 B</th>
+                                            <th class="p-2 font-bold text-slate-700">關鍵啟發</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100 text-slate-600">
+                                        <tr>
+                                            <td class="p-2 font-bold text-slate-800">本質特徵</td>
+                                            <td class="p-2">高度聚焦</td>
+                                            <td class="p-2">廣泛跨域</td>
+                                            <td class="p-2 text-teal-600">利於深度探究</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="p-2 font-bold text-slate-800">實踐場景</td>
+                                            <td class="p-2">科學觀測與理化實驗</td>
+                                            <td class="p-2">歷史因果與文學美學</td>
+                                            <td class="p-2 text-blue-600">融合多元核心素養</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
 
-            // Staggered Inner Elements Entrance — FIX: 用 container 範圍選取，避免選到舊卡片
-            const innerEls = container.querySelectorAll('.card-tag, .card-title, .card-desc, .copy-btn');
-            gsap.fromTo(innerEls, 
-                { opacity: 0, y: 15 }, 
-                { opacity: 1, y: 0, stagger: 0.04, duration: 0.7, ease: "power3.out", delay: 0.15 }
-            );
-        }
+                            <div class="flex justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-2">
+                                <span>* 本表符合高對比、低負擔的學術視覺規範。</span>
+                                <span class="font-mono">Slide 2 / 3</span>
+                            </div>
+                        </div>
+                    `;
+                } else if (format === 'narrative') {
+                    // 時間軸 / 敘事型投影片
+                    slideHTML = `
+                        <div class="h-full flex flex-col justify-between">
+                            <div>
+                                <span class="text-[9px] font-bold ${accentText} tracking-wider">CHRONOLOGICAL PROCESS // 脈絡歷程</span>
+                                <h2 class="text-lg md:text-xl font-bold text-slate-800 mt-0.5">時間軌跡與因果推進</h2>
+                            </div>
 
-        // Glow tracking only — tilt 已移除
-        function handleCardMove(e) {
-            const card = e.currentTarget;
-            const rect = card.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            card.style.setProperty('--mouse-x', `${(x / rect.width) * 100}%`);
-            card.style.setProperty('--mouse-y', `${(y / rect.height) * 100}%`);
-        }
+                            <div class="my-auto grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div class="p-3 rounded-lg bg-white border border-slate-200 relative">
+                                    <span class="absolute -top-2 left-3 px-1.5 py-0.5 rounded text-[8px] font-mono ${accentBg} ${accentText} font-bold">起點</span>
+                                    <h3 class="font-bold text-[11px] text-slate-800 mb-0.5 mt-0.5">背景與問題導入</h3>
+                                    <p class="text-[10px] text-slate-400 leading-relaxed">催生核心變革的背景事件與課堂探究主題。</p>
+                                </div>
+                                <div class="p-3 rounded-lg bg-white border border-slate-200 relative">
+                                    <span class="absolute -top-2 left-3 px-1.5 py-0.5 rounded text-[8px] font-mono ${accentBg} ${accentText} font-bold">發展</span>
+                                    <h3 class="font-bold text-[11px] text-slate-800 mb-0.5 mt-0.5">衝突與理論探討</h3>
+                                    <p class="text-[10px] text-slate-400 leading-relaxed">科學界的新發現、歷史因果與學術理論碰撞。</p>
+                                </div>
+                                <div class="p-3 rounded-lg bg-white border border-slate-200 relative">
+                                    <span class="absolute -top-2 left-3 px-1.5 py-0.5 rounded text-[8px] font-mono ${accentBg} ${accentText} font-bold">實踐</span>
+                                    <h3 class="font-bold text-[11px] text-slate-800 mb-0.5 mt-0.5">跨域反思與應用</h3>
+                                    <p class="text-[10px] text-slate-400 leading-relaxed">將所學理論融入當代生活，形成完整知識鏈。</p>
+                                </div>
+                            </div>
 
-        function handleCardLeave(e) {
-            // glow 透過 CSS :hover 控制，離開時自動消失
-        }
+                            <div class="flex justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-2">
+                                <span>* 利用階段式步驟卡片，展示清晰的知識脈絡。</span>
+                                <span class="font-mono">Slide 2 / 3</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // 概念拆解型
+                    slideHTML = `
+                        <div class="h-full flex flex-col justify-between">
+                            <div>
+                                <span class="text-[9px] font-bold ${accentText} tracking-wider">CONCEPT DECONSTRUCTION // 理論拆解</span>
+                                <h2 class="text-lg md:text-xl font-bold text-slate-800 mt-0.5">系統階層解構與要點</h2>
+                            </div>
 
-        // 事件委派：掛在 container 上，不受 renderCards 清空 innerHTML 影響
-        container.addEventListener('click', (e) => {
-            const btn = e.target.closest('.copy-btn');
-            if (!btn) return;
-            e.stopPropagation();
-            const id = parseInt(btn.dataset.id, 10);
-            const item = promptsData.find(p => p.id === id);
-            if (!item) return;
+                            <div class="my-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="space-y-2">
+                                    <div class="flex items-start gap-2">
+                                        <div class="h-4 w-4 rounded bg-teal-600 text-white font-mono text-[10px] flex items-center justify-center font-bold">1</div>
+                                        <div>
+                                            <h3 class="font-bold text-[11px] text-slate-800">核心定義 (Core Concept)</h3>
+                                            <p class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">此科學、人文現象最純粹的核心定義與必備要素。</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <div class="h-4 w-4 rounded bg-teal-600 text-white font-mono text-[10px] flex items-center justify-center font-bold">2</div>
+                                        <div>
+                                            <h3 class="font-bold text-[11px] text-slate-800">限制與邊界 (Constraints)</h3>
+                                            <p class="text-[10px] text-slate-400 mt-0.5 leading-relaxed">必須在特定常數背景限制、或時代視角下才能成立。</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-3 rounded-lg border border-slate-200 flex flex-col justify-center">
+                                    <h4 class="text-[11px] font-bold text-slate-700 border-l-2 border-teal-500 pl-2 mb-1">隨堂黑板畫</h4>
+                                    <p class="text-[10px] text-slate-400 italic leading-relaxed">
+                                        「任何精準公式都是對複雜現實的提煉與簡化，理解其誤差成因比單純背誦更有力量。」
+                                    </p>
+                                </div>
+                            </div>
 
-            // execCommand 在 file:// 環境最穩定，先用它；HTTPS 環境則用 clipboard API
-            function doExecCopy(text) {
-                const ta = document.createElement('textarea');
-                ta.value = text;
-                ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
-                document.body.appendChild(ta);
-                ta.focus();
-                ta.select();
-                let ok = false;
-                try { ok = document.execCommand('copy'); } catch(e) {}
-                document.body.removeChild(ta);
-                return ok;
-            }
-
-            if (navigator.clipboard && location.protocol !== 'file:') {
-                navigator.clipboard.writeText(item.content)
-                    .then(() => showCopySuccess(btn))
-                    .catch(() => {
-                        // clipboard API 失敗時降級
-                        if (doExecCopy(item.content)) showCopySuccess(btn);
-                    });
+                            <div class="flex justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-2">
+                                <span>* 利用高度視覺留白展現學術典雅感。</span>
+                                <span class="font-mono">Slide 2 / 3</span>
+                            </div>
+                        </div>
+                    `;
+                }
             } else {
-                if (doExecCopy(item.content)) showCopySuccess(btn);
-            }
-        });
+                // 【互動問題頁 - 啟發式討論】
+                slideHTML = `
+                    <div class="h-full flex flex-col justify-between">
+                        <div>
+                            <span class="text-[9px] font-bold ${accentText} tracking-wider">CLASSROOM COLLABORATION // 探究與思辨</span>
+                            <h2 class="text-lg md:text-xl font-bold text-slate-800 mt-0.5">課堂啟發式思考與互動問題</h2>
+                        </div>
 
-        function showCopySuccess(btn) {
-            if (btn._copying) return; // 防止連點重複觸發
-            btn._copying = true;
-            btn.classList.add('copied');
-            const originalText = btn.innerText;
-            btn.innerText = 'COPIED!';
-            
-            gsap.to(toast, { y: -40, opacity: 1, duration: 0.6, ease: "back.out(1.7)" });
-            setTimeout(() => {
-                gsap.to(toast, { y: 100, opacity: 0, duration: 0.4, ease: "power2.in" });
-                btn.classList.remove('copied');
-                btn.innerText = originalText;
-                btn._copying = false;
-            }, 2000);
+                        <div class="my-auto space-y-2.5 max-w-2xl">
+                            <div class="flex items-start gap-2.5 p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm hover:border-teal-400 transition">
+                                <span class="h-5 w-5 rounded-full bg-teal-50 text-teal-600 font-bold text-[10px] flex items-center justify-center flex-shrink-0">Q1</span>
+                                <div>
+                                    <h3 class="font-bold text-[11px] text-slate-800">若移除此結構或變因，系統在日常運作中會面臨何種衝擊？</h3>
+                                    <p class="text-[10px] text-slate-400 mt-0.5">請小組利用貼切比擬進行闡述（如：細胞核之於大腦/中控台）。</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-2.5 p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm hover:border-teal-400 transition">
+                                <span class="h-5 w-5 rounded-full bg-teal-50 text-teal-600 font-bold text-[10px] flex items-center justify-center flex-shrink-0">Q2</span>
+                                <div>
+                                    <h3 class="font-bold text-[11px] text-slate-800">在我們周遭的生活日常中，還能找到哪些吻合此運作邏輯的案例？</h3>
+                                    <p class="text-[10px] text-slate-400 mt-0.5">嘗試提出相似點，並說明其背後科學/社會機制的共通與差異。</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-2">
+                            <span>* 積極鼓勵多元開放思考，提問模組由 Prompt 指引精準產出。</span>
+                            <span class="font-mono">Slide 3 / 3</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = slideHTML;
+            container.className = `w-full h-full p-6 md:p-10 flex flex-col justify-between relative overflow-hidden select-none animate-fade-in ${themeClass}`;
+
+            // 更新頁碼指示
+            const pageIndicator = document.getElementById(targetContainerId === "slideContent" ? "slidePageIndicator" : "presenterPageIndicator");
+            if (pageIndicator) {
+                pageIndicator.innerText = `${activeSlideIndex + 1} / 3`;
+            }
         }
 
-        // Navigation
-        navItems.forEach(item => {
-            item.addEventListener('click', () => {
-                if(item.classList.contains('active')) return;
-                
-                navItems.forEach(i => i.classList.remove('active'));
-                item.classList.add('active');
-                
-                // FIX: 移除 filter:blur，改用 opacity+y
-                gsap.to(".card", {
-                    opacity: 0,
-                    y: -20,
-                    stagger: 0.04,
-                    duration: 0.35,
-                    ease: "power2.in",
-                    onComplete: () => renderCards(item.dataset.category)
-                });
-                
-                gsap.fromTo("#main-title", { x: -20, opacity: 0 }, { x: 0, opacity: 1, duration: 1, ease: "power4.out" });
-            });
-        });
+        // 投影片左右控制
+        function nextSlide() {
+            if (selectedScenarioIndex === -1) return;
+            if (activeSlideIndex < 2) {
+                activeSlideIndex++;
+                renderSlideContent(database[selectedScenarioIndex]);
+            }
+        }
 
-        // DOMContentLoaded：不等外部 CDN 資源，DOM 就緒即啟動
-        document.addEventListener('DOMContentLoaded', () => {
-            gsap.to("#main-title",    { opacity: 1, duration: 1.5, delay: 0.2, ease: "power4.out" });
-            gsap.to("#main-subtitle", { opacity: 1, duration: 1.5, delay: 0.4, ease: "power4.out" });
-            renderCards();
-        });
+        function prevSlide() {
+            if (selectedScenarioIndex === -1) return;
+            if (activeSlideIndex > 0) {
+                activeSlideIndex--;
+                renderSlideContent(database[selectedScenarioIndex]);
+            }
+        }
 
+        // 一鍵複製提示詞
+        function copyCurrentPrompt() {
+            if (selectedScenarioIndex === -1) {
+                showToast("⚠️ 請先在左側選取具體教案！", false);
+                return;
+            }
+            const prompt = document.getElementById('promptTextarea').value;
+            
+            const textarea = document.createElement('textarea');
+            textarea.value = prompt;
+            textarea.style.position = 'fixed';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                const success = document.execCommand('copy');
+                if (success) {
+                    showToast("📋 提示詞複製成功！可直接貼於 NotebookLM！", true);
+                } else {
+                    showToast("⚠️ 複製失敗，請手動選取複製。", false);
+                }
+            } catch (err) {
+                showToast("⚠️ 瀏覽器限制，請手動複製。", false);
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function showToast(msg, isSuccess) {
+            const toast = document.getElementById('toast');
+            const icon = toast.querySelector('i');
+            const text = document.getElementById('toastMessage');
+
+            text.innerText = msg;
+            if (isSuccess) {
+                icon.className = "fa-solid fa-circle-check text-emerald-400 text-sm";
+            } else {
+                icon.className = "fa-solid fa-circle-exclamation text-amber-400 text-sm";
+            }
+
+            toast.className = "fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-2xl flex items-center gap-2 transform transition-all duration-300 z-50 translate-y-0 opacity-100";
+            
+            setTimeout(() => {
+                toast.className = "fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-2xl flex items-center gap-2 transform transition-all duration-300 z-50 translate-y-24 opacity-0";
+            }, 2500);
+        }
+
+        // 全螢幕放映模式
+        function openPresenterMode() {
+            if (selectedScenarioIndex === -1) {
+                showToast("⚠️ 請先在左側選定教案再行放映！", false);
+                return;
+            }
+            const item = database[selectedScenarioIndex];
+            document.getElementById('presenterScenario').innerText = `${item.scenario} // 風格：${item.style}`;
+            
+            const presenter = document.getElementById('presenterMode');
+            presenter.classList.remove('hidden');
+            presenter.classList.add('flex');
+
+            activeSlideIndex = 0;
+            renderSlideContent(item, 'presenterSlideContent');
+        }
+
+        function closePresenterMode() {
+            const presenter = document.getElementById('presenterMode');
+            presenter.classList.add('hidden');
+            presenter.classList.remove('flex');
+            
+            // 同步回一般預覽
+            renderSlideContent(database[selectedScenarioIndex], 'slideContent');
+        }
+
+        function nextSlidePresenter() {
+            if (activeSlideIndex < 2) {
+                activeSlideIndex++;
+                renderSlideContent(database[selectedScenarioIndex], 'presenterSlideContent');
+            }
+        }
+
+        function prevSlidePresenter() {
+            if (activeSlideIndex > 0) {
+                activeSlideIndex--;
+                renderSlideContent(database[selectedScenarioIndex], 'presenterSlideContent');
+            }
+        }
     </script>
 </body>
 </html>
